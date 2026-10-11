@@ -1,0 +1,4 @@
+target/
+.DS_Store
+# Switzer (Fontshare): Lizenz erlaubt kein Weitergeben, siehe looksmaxxer-app/build.rs
+looksmaxxer-app/ui/switzer.woff2

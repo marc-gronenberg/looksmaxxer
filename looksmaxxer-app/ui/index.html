@@ -1,0 +1,1534 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Looksmaxxer</title>
+<style>
+  @font-face { font-family: "Switzer"; src: url("/switzer.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+  :root {
+    --bg: #0e0f10;        /* um das Bild herum */
+    --surface: #151718;   /* Kopf, Fuß, Regler, Leisten */
+    --deck: #121415;      /* die Kette */
+    --raised: #1d2022;    /* ausgewählt */
+    --open: #2a2d30;      /* aufgeklappte Leiste, gedrückter Schalter */
+    --rule: #26292b;
+    --tile-size: 112px;   /* Kantenlänge der Tool-Kacheln; alles andere daran wächst mit */
+    --divider: #2d2d2d;   /* zwischen den Reglern */
+    --slider-track: #050505;
+    --slider-fill: var(--accent);
+    --slider-thumb: #8c8c8c;
+    --slider-thumb-hover: #a6a6a6;
+    --line: #3a3e41;      /* Rahmen der Knöpfe */
+    --tile: #2c3033;      /* Rahmen der Kacheln */
+    --dashed: #55595c;
+    --ink: #e6e4df;
+    --label: #b4b6b7;
+    --dim: #9a9d9f;
+    --accent: #5a5af2;        /* dasselbe Lila wie die Füllung der Regler */
+    --accent-text: #8f8ff7;   /* helleres Lila für kleine Schrift, damit sie auf dem dunklen Grund lesbar bleibt */
+    --on-accent: #ffffff;
+    --face: "Switzer", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--ink);
+    font: 400 13px/1.35 var(--face); font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased; overflow: hidden;
+  }
+  button, input { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  button:disabled { cursor: default; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* Schieberegler: ein dünner Strich, blau vom Nullpunkt bis zum Griff (--from/--to setzt
+     paintSlider), der Griff ein Fünfeck, das nach unten zeigt. */
+  input[type=range] {
+    -webkit-appearance: none; appearance: none; display: block;
+    width: 100%; height: 24px; margin: 0; background: transparent; cursor: pointer;
+    --from: 0%; --to: 0%;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 3px;
+    background: linear-gradient(90deg, var(--slider-track) var(--from), var(--slider-fill) var(--from), var(--slider-fill) var(--to), var(--slider-track) var(--to));
+  }
+  input[type=range]::-moz-range-track {
+    height: 3px;
+    background: linear-gradient(90deg, var(--slider-track) var(--from), var(--slider-fill) var(--from), var(--slider-fill) var(--to), var(--slider-track) var(--to));
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 16px; height: 16px; margin-top: -11px; border: 0;
+    background: var(--slider-thumb); clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 16px; height: 16px; border: 0; border-radius: 0; transform: translateY(-5px);
+    background: var(--slider-thumb); clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%);
+  }
+  input[type=range]:hover::-webkit-slider-thumb, input[type=range]:active::-webkit-slider-thumb { background: var(--slider-thumb-hover); }
+  input[type=range]:hover::-moz-range-thumb, input[type=range]:active::-moz-range-thumb { background: var(--slider-thumb-hover); }
+  input[type=range]:focus-visible { outline: 1px solid var(--slider-fill); outline-offset: 4px; }
+  [hidden] { display: none !important; }
+
+  .app { position: relative; height: 100%; display: flex; flex-direction: column; }
+
+  /* Knöpfe in Kopf und Fuß */
+  .btn {
+    height: 28px; padding: 0 12px; border: 1px solid var(--line); border-radius: 2px;
+    background: transparent; color: var(--ink);
+    font-size: 11px; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--dim); }
+  .btn:disabled { color: #5d6163; border-color: var(--rule); }
+  .btn[aria-pressed="true"].invert { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn[aria-pressed="true"]:not(.invert) { background: var(--open); }
+  .btn.small { height: 24px; padding: 0 8px; font-size: 10px; }
+  .btn.big { height: 32px; padding: 0 14px; }
+  .btn.primary { height: 32px; padding: 0 16px; border-color: var(--accent); background: var(--accent); color: var(--on-accent); font-weight: 600; }
+  .btn.primary:disabled { background: #2e2e66; border-color: #2e2e66; color: #8a8ab0; }
+
+  /* Kopf */
+  .top {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+    min-height: 40px; padding: 4px 16px; border-bottom: 1px solid var(--rule); background: var(--surface);
+  }
+  .brand { font-weight: 600; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; }
+  .host { display: flex; align-items: baseline; gap: 10px; min-width: 0; font-size: 11px; color: var(--dim); }
+  .host b { font-weight: 500; color: var(--ink); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40ch; }
+  .lamp { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #5d6163; margin-right: 6px; vertical-align: 1px; }
+  .lamp.on { background: var(--accent); }
+  .spacer { flex: 1 1 auto; }
+  .top .group { display: flex; gap: 8px; }
+
+  /* Mitte: Leiste, Bild, Regler, Leiste */
+  .middle { flex: 1 1 auto; display: flex; min-height: 0; }
+  .rail { position: relative; z-index: 5; flex: none; width: 32px; display: flex; }
+  .rail-btn {
+    flex: 1 1 auto; display: flex; align-items: center; justify-content: center; padding: 0; border: 0;
+    background: var(--surface); color: var(--ink);
+    font-size: 11px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase;
+  }
+  .rail.left .rail-btn { border-right: 1px solid var(--rule); }
+  .rail.right .rail-btn { border-left: 1px solid var(--rule); }
+  .rail-btn[aria-expanded="true"] { background: var(--open); }
+  .rail-btn span { writing-mode: vertical-rl; }
+  .rail.left .rail-btn span { transform: rotate(180deg); }
+  .flyout {
+    position: absolute; top: 0; bottom: 0; overflow-y: auto; background: var(--surface);
+    display: flex; flex-direction: column;
+  }
+  .rail.left .flyout { left: 100%; width: 280px; border-right: 1px solid var(--line); box-shadow: 16px 0 32px rgba(0,0,0,.45); }
+  .rail.right .flyout { right: 100%; width: calc(2 * var(--tile-size) + 72px); border-left: 1px solid var(--line); box-shadow: -16px 0 32px rgba(0,0,0,.45); }
+  .fly-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px 10px 16px; border-bottom: 1px solid var(--rule); }
+  .fly-title { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; }
+
+  .looks { display: flex; flex-direction: column; gap: 6px; padding: 12px; }
+  .look { position: relative; }
+  .look-btn {
+    width: 100%; display: flex; align-items: center; gap: 10px; padding: 6px;
+    border: 1px solid var(--tile); background: transparent; color: var(--ink); text-align: left;
+  }
+  .look-btn:hover { border-color: var(--line); }
+  .look-btn[aria-pressed="true"] { border-color: var(--accent); background: var(--raised); }
+  .look canvas { display: block; flex: none; width: 72px; height: 40px; background: #000; }
+  .look-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .look-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .look-meta { font-size: 11px; color: var(--dim); }
+  .look-del {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    width: 24px; height: 24px; border: 1px solid var(--line); border-radius: 2px; background: var(--surface); color: var(--dim);
+    font-size: 14px; line-height: 1; padding: 0; opacity: 0;
+  }
+  .look:hover .look-del, .look-del:focus-visible { opacity: 1; }
+  .look-del:hover { color: var(--ink); border-color: var(--dim); }
+  .look-rename { width: 100%; font-size: 13px; font-weight: 500; background: var(--bg); border: 1px solid var(--accent); border-radius: 2px; padding: 1px 4px; }
+  .save-look {
+    height: 32px; margin-top: 6px; border: 1px dashed var(--dashed); background: transparent; color: var(--ink);
+    font-size: 11px; letter-spacing: .08em; text-transform: uppercase;
+  }
+  .save-look:hover { border-color: var(--dim); }
+  .fly-note { padding: 0 16px 14px; font-size: 11px; color: var(--dim); }
+
+  .toolbox { display: grid; grid-template-columns: repeat(2, var(--tile-size)); justify-content: center; gap: 24px 20px; padding: 20px 16px 24px; }
+
+  /* Tool-Kacheln (Werkzeugkasten und Kette): leuchtendes Glas. Unten die Live-Vorschau des
+     Tools, darüber Glas; eine verkleinerte Kopie der Vorschau strahlt als farbiger Schein nach unten. */
+  .card {
+    position: relative; flex: none; width: var(--tile-size); display: flex; flex-direction: column; align-items: center; gap: 9px;
+    padding: 0; border: 0; background: none; color: var(--ink);
+  }
+  button.card { cursor: grab; }
+  button.card:disabled { opacity: .4; cursor: not-allowed; }
+  .tile { position: relative; display: block; width: var(--tile-size); height: var(--tile-size); border-radius: calc(var(--tile-size) * .26); isolation: isolate; transition: transform .18s ease, filter .18s ease, opacity .18s ease, box-shadow .25s ease; }
+  .card:hover:not(:disabled) .tile { transform: translateY(-2px); }
+  .tile .swatch, .tile .glass { position: absolute; inset: 0; display: block; width: 100%; height: 100%; border-radius: inherit; }
+  .tile .glow { position: absolute; left: 8px; top: 14px; display: block; width: calc(100% - 16px); height: calc(100% - 4px); border-radius: inherit; filter: blur(16px); opacity: .6; z-index: -1; }
+  /* Klares Glas: keine Unschärfe, nur ein Glanz oben, Lichtkante und etwas Tiefe; die Vorschau bleibt scharf. */
+  .tile .glass {
+    -webkit-backdrop-filter: saturate(130%); backdrop-filter: saturate(130%);
+    background: linear-gradient(180deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,0) 38%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.7), inset 0 -1px 0 rgba(255,255,255,.12), inset 0 0 0 1px rgba(255,255,255,.08), inset 0 -14px 20px rgba(0,0,0,.14);
+  }
+  .card-name { max-width: calc(var(--tile-size) + 16px); font-size: 12px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* Bild */
+  .stage {
+    position: relative; flex: 999 1 260px; min-width: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; gap: 12px;
+  }
+  .frame { position: relative; flex: none; line-height: 0; outline: 1px solid var(--rule); background: #000; }
+  .frame canvas { display: block; }
+  .tag {
+    position: absolute; left: 12px; top: 12px; padding: 3px 8px; background: var(--bg); color: var(--ink);
+    font-size: 11px; line-height: 1.35; letter-spacing: .1em; text-transform: uppercase;
+  }
+  .notes { display: flex; flex-direction: column; gap: 2px; max-width: 100%; }
+  .note { color: var(--dim); font-size: 12px; }
+  .note::before { content: ""; display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); margin-right: 8px; vertical-align: 2px; }
+  .remove-hint {
+    position: absolute; inset: 24px; display: flex; align-items: center; justify-content: center;
+    border: 1px dashed var(--accent); background: rgba(14,15,16,.72); color: var(--ink); font-size: 13px; pointer-events: none;
+  }
+
+  /* Meldungen im Bildbereich, im Stil des Fensters */
+  .box { max-width: 420px; display: flex; flex-direction: column; gap: 14px; padding: 24px; border: 1px solid var(--line); background: var(--surface); }
+  .box-label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent-text); }
+  .box-title { font-size: 18px; font-weight: 600; line-height: 1.25; }
+  .box-text { color: var(--label); }
+  .box .btn { align-self: flex-start; }
+  .box .row { display: flex; gap: 8px; }
+  .trouble {
+    position: absolute; left: 50%; top: 16px; transform: translateX(-50%); z-index: 3;
+    max-width: min(70ch, calc(100% - 48px)); display: flex; gap: 14px; align-items: flex-start;
+    padding: 10px 12px 10px 14px; background: var(--surface); border: 1px solid var(--accent);
+  }
+  .trouble p { margin: 0; }
+  .trouble button { background: none; border: 0; color: var(--dim); padding: 0 2px; font-size: 18px; line-height: 1; }
+
+  /* Regler */
+  /* Die Controls fahren aus, sobald ein Tool gewählt ist, und wieder ein, wenn keins gewählt ist. */
+  .panel { --panel-w: 380px; flex: 0 0 var(--panel-w); min-width: 0; overflow-x: hidden; overflow-y: auto; border-left: 1px solid var(--rule); background: var(--surface); display: flex; flex-direction: column; transition: flex-basis .25s ease, border-color .25s ease; }
+  .panel > * { min-width: var(--panel-w); }   /* der Inhalt behält seine Breite und wird beim Einfahren abgeschnitten */
+  .panel[data-open="false"] { flex-basis: 0; border-left-color: transparent; }
+  .p-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--rule); }
+  .p-name { font-size: 16px; font-weight: 600; flex: 1 1 auto; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .p-state { background: none; border: 0; padding: 4px 2px; font-size: 11px; letter-spacing: .08em; color: var(--dim); }
+  .p-state[aria-checked="true"] { color: var(--accent-text); }
+  .panel[data-off="true"] .params { opacity: .45; }
+  .group-head { padding: 14px 16px 0; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink); font-weight: 600; }
+  /* Eine Zeile je Regler: Name links, Regler in der Mitte, Zahl rechts; Linien dazwischen. */
+  .param { display: grid; grid-template-columns: 104px minmax(0, 1fr) 64px; align-items: center; gap: 0 12px; padding: 14px 16px; }
+  .params > * + * { border-top: 1px solid var(--divider); }
+  .param label { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--label); }
+  .param output { font-size: 13px; text-align: right; color: var(--ink); }
+  /* Schalter in den Controls (z. B. Anamorphic) */
+  .toggle { grid-column: 2; justify-self: start; min-width: 64px; height: 28px; padding: 0 12px; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); color: var(--ink); font-size: 12px; }
+  .toggle[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  /* Griff auf dem Bild (Ellipse der Vignette): im Ring ziehen verschiebt, die Punkte formen. */
+  .overlay { position: absolute; inset: 0; width: 100%; height: 100%; overflow: hidden; touch-action: none; } /* Ring und Griffe enden am Bildrand */
+  .overlay .ring { fill: transparent; stroke: var(--accent-text); stroke-width: 2.5; stroke-dasharray: 9 7; vector-effect: non-scaling-stroke; cursor: move; }
+  .overlay .handle { fill: var(--bg); stroke: var(--accent-text); stroke-width: 2.5; vector-effect: non-scaling-stroke; cursor: grab; }
+  .overlay .handle:hover { fill: var(--accent-text); }
+  .overlay .centre { stroke: var(--accent-text); stroke-width: 2.5; vector-effect: non-scaling-stroke; pointer-events: none; }
+  .overlay .link { stroke: var(--accent-text); stroke-width: 2; stroke-dasharray: 9 7; vector-effect: non-scaling-stroke; pointer-events: none; }
+  .overlay .handle.start { fill: var(--accent-text); }
+  .hue-bar { grid-column: 2; height: 4px; margin-top: -4px; background: linear-gradient(90deg, hsl(0 70% 55%), hsl(60 70% 55%), hsl(120 70% 50%), hsl(180 70% 50%), hsl(240 70% 60%), hsl(300 70% 55%), hsl(360 70% 55%)); }
+  .p-what { padding: 12px 16px 2px; color: var(--dim); font-size: 12px; }
+
+  /* Die Kette */
+  .chain {
+    display: flex; align-items: center; min-height: calc(var(--tile-size) + 56px); padding: 18px 16px 22px;
+    border-top: 1px solid var(--rule); background: var(--deck); overflow-x: auto;
+  }
+  .chain-row { display: flex; align-items: center; margin: 0 auto; }
+  /* Leere Kette: eine Kachel mit +, ein Klick öffnet die Tools. */
+  .add-tool {
+    flex: none; display: grid; place-items: center; width: var(--tile-size); height: var(--tile-size); padding: 0;
+    border: 1px solid var(--line); border-radius: calc(var(--tile-size) * .26); background: rgba(255,255,255,.03);
+    color: var(--dim); font-size: 40px; font-weight: 300; line-height: 1; transition: box-shadow .25s ease, color .2s ease, border-color .2s ease;
+  }
+  .add-tool:hover { color: var(--ink); border-color: var(--accent); box-shadow: 0 0 16px 2px rgba(90, 90, 242, .5); }
+  .link { flex: none; display: flex; align-items: stretch; }
+  .link[data-dragging="true"] { opacity: .35; }
+  .slot { flex: none; width: 18px; display: flex; align-items: center; justify-content: center; align-self: stretch; }
+  .slot i { display: block; width: 18px; height: 1px; background: transparent; }
+  .slot[data-over="true"] i { width: 3px; height: 100%; background: var(--accent); }
+  .link .card { cursor: grab; }
+  /* In der Kette leuchtet die Kachel lila nach außen: beim Überfahren schwächer, gewählt deutlich. */
+  .link .card:hover .tile { box-shadow: 0 0 16px 2px rgba(90, 90, 242, .5); }
+  .link .card[aria-current="true"] .tile { box-shadow: 0 0 22px 4px rgba(90, 90, 242, .8); }
+  .link .card[data-on="false"] .tile { filter: grayscale(.9); opacity: .4; }
+  .link .card[data-on="false"] .glow { display: none; }
+  .link .card[data-on="false"] .card-name { color: var(--dim); }
+  .pick { display: flex; flex-direction: column; align-items: center; gap: 9px; padding: 0; border: 0; background: transparent; color: inherit; cursor: inherit; }
+  /* An/Aus: ein runder Schalter oben rechts in der Kachel, lila = an, grau = aus. */
+  .power {
+    position: absolute; right: 9px; top: 9px; z-index: 1; width: 18px; height: 18px; padding: 0; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,.55); background: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,.4); cursor: pointer;
+  }
+  .power::before { content: ""; position: absolute; inset: -7px; }  /* größere Klickfläche */
+  .link .card[data-on="false"] .power { background: #6b6e70; }
+  /* Kontextmenü einer Kachel (Rechtsklick) */
+  .menu { position: fixed; z-index: 20; min-width: 140px; padding: 4px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); box-shadow: 0 10px 28px rgba(0,0,0,.5); }
+  .menu button { display: block; width: 100%; padding: 6px 10px; border: 0; border-radius: 4px; background: none; color: var(--ink); font-size: 13px; text-align: left; }
+  .menu button:hover, .menu button:focus-visible { background: var(--accent); color: var(--on-accent); outline: none; }
+
+  /* Fuß */
+  .foot {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; min-height: 48px; padding: 8px 16px;
+    border-top: 1px solid var(--rule); background: var(--surface);
+  }
+  .small-label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .look-now { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .look-now b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .strength { display: flex; align-items: center; gap: 10px; }
+  .strength input { width: 180px; }
+  .strength output { width: 48px; text-align: right; font-size: 13px; }
+  .foot .group { display: flex; gap: 8px; }
+
+  /* Ende: angewendet oder abgebrochen */
+  .curtain {
+    position: absolute; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; padding: 24px;
+    background: rgba(14,15,16,.94);
+  }
+
+  @media (max-width: 1100px) { .panel { --panel-w: 320px; } .param { grid-template-columns: 88px minmax(0, 1fr) 60px; } .strength input { width: 120px; } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">Looksmaxxer</div>
+    <div class="host"><span><i class="lamp" id="lamp"></i>PhotoCraft</span><b id="docName"></b><span id="docMeta"></span></div>
+    <div class="spacer"></div>
+    <div class="group">
+      <button class="btn" id="reload" type="button" title="Get the image from PhotoCraft again">Reload image</button>
+      <button class="btn invert" id="compare" type="button" aria-pressed="false" title="Show the image without the look. Hold V for a quick look.">Before</button>
+      <button class="btn" id="togglePanel" type="button" aria-pressed="true">Controls</button>
+    </div>
+  </header>
+
+  <div class="middle">
+    <div class="rail left" id="leftRail">
+      <button class="rail-btn" id="leftBtn" type="button" aria-expanded="false" aria-controls="looksFly"><span>Looks</span></button>
+      <aside class="flyout" id="looksFly" aria-label="Looks" hidden>
+        <div class="fly-head">
+          <div class="fly-title">Looks</div>
+          <button class="btn small" id="leftClose" type="button">Close</button>
+        </div>
+        <div class="looks" id="looks"></div>
+        <div class="fly-note">Double-click a saved look to rename it.</div>
+      </aside>
+    </div>
+
+    <main class="stage" id="stage">
+      <div class="frame" id="frame" hidden>
+        <canvas id="view" width="16" height="9" aria-label="Preview of the image with the look"></canvas>
+        <svg class="overlay" id="overlay" hidden>
+          <g id="ellipseUI" aria-label="Vignette shape: drag inside the ring to move it, drag a handle to change size and shape">
+            <ellipse class="ring" id="ring"/>
+            <path class="centre" id="centre"/>
+            <circle class="handle" data-axis="x" data-sign="1"/>
+            <circle class="handle" data-axis="x" data-sign="-1"/>
+            <circle class="handle" data-axis="y" data-sign="1"/>
+            <circle class="handle" data-axis="y" data-sign="-1"/>
+          </g>
+          <g id="pointsUI" aria-label="Gradient: drag the filled point (start) and the hollow point (end)">
+            <line class="link" id="link"/>
+            <circle class="handle start" data-point="1"/>
+            <circle class="handle" data-point="2"/>
+          </g>
+        </svg>
+        <div class="tag" id="tag" hidden>Before</div>
+      </div>
+      <div class="notes" id="notes"></div>
+      <div class="box" id="message" hidden>
+        <div class="box-label" id="msgLabel"></div>
+        <div class="box-title" id="msgTitle"></div>
+        <div class="box-text" id="msgText"></div>
+        <button class="btn big" id="msgAction" type="button" hidden></button>
+      </div>
+      <div class="remove-hint" id="removeHint" hidden></div>
+      <div class="trouble" id="trouble" role="alert" hidden>
+        <p id="troubleText"></p>
+        <button type="button" id="troubleClose" aria-label="Dismiss message">×</button>
+      </div>
+    </main>
+
+    <aside class="panel" id="panel" aria-label="Controls"></aside>
+
+    <div class="rail right" id="rightRail">
+      <button class="rail-btn" id="rightBtn" type="button" aria-expanded="false" aria-controls="toolsFly"><span>Tools</span></button>
+      <aside class="flyout" id="toolsFly" aria-label="Tools" hidden>
+        <div class="toolbox" id="toolbox"></div>
+        <div class="fly-note" id="toolboxNote">Click a tool to add it to the end of the chain, or drag it to a spot in the chain.</div>
+      </aside>
+    </div>
+  </div>
+
+  <section class="chain" id="chain" aria-label="Chain, from left to right">
+    <div class="chain-row" id="chainRow"></div>
+  </section>
+
+  <footer class="foot">
+    <div class="look-now"><span class="small-label">Look</span><b id="lookName">Untitled</b></div>
+    <div class="spacer"></div>
+    <div class="strength">
+      <label class="small-label" for="strength">Strength</label>
+      <input type="range" id="strength" min="0" max="100" step="1" value="100" title="Double-click to reset">
+      <output id="strengthOut" for="strength">100%</output>
+    </div>
+    <div class="group">
+      <button class="btn big" id="cancel" type="button">Cancel</button>
+      <button class="btn primary" id="apply" type="button" disabled>Apply</button>
+    </div>
+  </footer>
+
+  <div class="curtain" id="curtain" hidden>
+    <div class="box">
+      <div class="box-label" id="endLabel"></div>
+      <div class="box-title" id="endTitle"></div>
+      <div class="box-text" id="endText"></div>
+      <button class="btn big" id="endBack" type="button"></button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+
+  // --- Die Tools ------------------------------------------------------------------------------
+  // Welche Tools es gibt, mit Name, Beschreibung und Reglern, steht allein im Rust-Kern
+  // (core/src/tools); das Modul liefert die Liste beim Start (`lk_tools`). Hier steht nichts davon.
+  let SLOTS = 8;
+  let TOOLS = {};
+  const defaultsOf = (type) => Object.fromEntries(TOOLS[type].params.map((p) => [p.k, p.def]));
+
+  const PRESETS = [
+    { id: "none", name: "No look", chain: [] },
+    { id: "classic", name: "Classic", chain: [
+      ["warmCool", { temperature: 25, tint: 0 }], ["shoulder", { start: 70, amount: 30 }],
+      ["tealOrange", { amount: 55, skin: 60 }], ["vignette", { size: 115, amount: 35, softness: 50 }] ] },
+    { id: "coastal", name: "Coastal Evening", chain: [
+      ["exposure", { stops: 0.3 }], ["warmCool", { temperature: 35, tint: -6 }], ["tealOrange", { amount: 40, skin: 70 }],
+      ["shoulder", { start: 65, amount: 40 }], ["vignette", { size: 110, amount: 45, softness: 55 }] ] },
+    { id: "morning", name: "Cool Morning", chain: [
+      ["warmCool", { temperature: -40, tint: -8 }], ["exposure", { stops: 0.2 }],
+      ["liftGammaGain", { liftHue: 210, liftAmount: 25, gammaHue: 0, gammaAmount: 0, gainHue: 190, gainAmount: 10 }],
+      ["shoulder", { start: 75, amount: 25 }] ] },
+    { id: "golden", name: "Golden Hour", chain: [
+      ["warmCool", { temperature: 45, tint: 5 }],
+      ["liftGammaGain", { liftHue: 30, liftAmount: 10, gammaHue: 40, gammaAmount: 10, gainHue: 40, gainAmount: 30 }],
+      ["shoulder", { start: 60, amount: 45 }], ["vignette", { size: 120, amount: 30, softness: 60 }] ] },
+    { id: "blockbuster", name: "Blockbuster", chain: [
+      ["exposure", { stops: -0.2 }], ["tealOrange", { amount: 85, skin: 70 }],
+      ["liftGammaGain", { liftHue: 190, liftAmount: 30, gammaHue: 0, gammaAmount: 0, gainHue: 35, gainAmount: 25 }],
+      ["shoulder", { start: 70, amount: 35 }], ["vignette", { size: 100, amount: 40, softness: 50 }] ] },
+    { id: "night", name: "Night", chain: [
+      ["exposure", { stops: -0.8 }], ["warmCool", { temperature: -30, tint: 0 }],
+      ["liftGammaGain", { liftHue: 220, liftAmount: 35, gammaHue: 220, gammaAmount: 10, gainHue: 200, gainAmount: 10 }],
+      ["vignette", { size: 95, amount: 55, softness: 60 }] ] },
+  ];
+  // Die Vorlagen in derselben Form wie eigene Looks: [{ type, on, v }].
+  // Erst wenn die Tools bekannt sind; Vorlagen mit Tools, die es nicht mehr gibt, lassen sie weg.
+  const preparePresets = () => { for (const p of PRESETS) p.chain = p.chain.filter(([type]) => TOOLS[type]).map(([type, v]) => ({ type, on: true, v: { ...defaultsOf(type), ...v } })); };
+
+  // --- Zustand --------------------------------------------------------------------------------
+
+  const S = {
+    chain: [], sel: null, strength: 100, lookId: null, dirty: false, custom: [],
+    compare: false, holdCompare: false, panel: true, left: false, right: false,
+    drag: null, over: null, removeHint: false, renaming: null,
+    connected: false, running: false, foreign: false, doc: null, blocked: null, demo: false, checked: false,
+    fetched: null, failedKey: null, busy: null, image: null, wasm: null, ended: null,
+  };
+  let seq = 0;
+  const newUid = () => `t${++seq}`;
+  const instantiate = (chain) => chain.filter((t) => TOOLS[t.type]).slice(0, SLOTS).map((t) => ({ uid: newUid(), type: t.type, on: t.on !== false, v: { ...defaultsOf(t.type), ...t.v } }));
+  const serialise = (chain) => chain.map((t) => ({ type: t.type, on: t.on, v: { ...t.v } }));
+  const allLooks = () => PRESETS.concat(S.custom);
+  const toolCount = (n) => (n ? `${n} ${n === 1 ? "tool" : "tools"}` : "Empty chain");
+
+  /** Die Parameter für das Plug-in und die Vorschau: die eingeschalteten Tools auf festen Plätzen.
+      Die Oberfläche schreibt die Reglerwerte im Klartext; gepackt wird nur im Modul (`lk_pack`). */
+  function paramsFor(chain, strength) {
+    const plain = { strength };
+    chain.filter((t) => t.on).slice(0, SLOTS).forEach((t, i) => {
+      plain[`slot${i + 1}`] = t.type;
+      TOOLS[t.type].params.forEach((d, k) => { plain[`slot${i + 1}_${k}`] = Number(t.v[d.k]); });
+    });
+    return wasmCall("lk_pack", plain);
+  }
+  const anyOn = () => S.chain.some((t) => t.on) && S.strength > 0;
+
+  // --- Schnittstelle zum lokalen Dienst -------------------------------------------------------
+
+  async function api(path, body) {
+    const init = body === undefined
+      ? {}
+      : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+    const res = await fetch(path, init);
+    if (path === "/api/preview" && res.ok) {
+      const doc = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(res.headers.get("X-Look-Document")), (c) => c.charCodeAt(0))));
+      return { doc, blob: await res.blob() };
+    }
+    const data = await res.json().catch(() => ({ ok: false, error: "Looksmaxxer got an answer it couldn't read." }));
+    if (!res.ok || data.ok === false) {
+      const e = new Error(data.error || "Unknown error");
+      e.code = data.code;
+      throw e;
+    }
+    return data;
+  }
+
+  // Der letzte Stand wird kurz nach jeder Änderung gesichert und beim nächsten Start wiederhergestellt.
+  let saveTimer = 0;
+  function remember() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      api("/api/library", { last: { chain: serialise(S.chain), strength: S.strength, lookId: S.lookId, dirty: S.dirty } }).catch(() => {});
+    }, 700);
+  }
+  function rememberNow() { clearTimeout(saveTimer); return api("/api/library", { last: { chain: serialise(S.chain), strength: S.strength, lookId: S.lookId, dirty: S.dirty } }).catch(() => {}); }
+  const saveCustom = () => api("/api/library", { custom: S.custom }).catch((e) => trouble(`The looks couldn't be saved: ${e.message}`));
+
+  // --- WebAssembly: dieselbe Kette wie im Plug-in ---------------------------------------------
+
+  const encoder = new TextEncoder();
+  /** Text aus dem Modul: `len << 32 | ptr` als BigInt. */
+  const wasmText = (v) => new TextDecoder().decode(new Uint8Array(S.wasm.memory.buffer, Number(v & 0xffffffffn), Number(v >> 32n)));
+  /** Eine Modul-Funktion, die JSON nimmt und JSON zurückgibt (`lk_pack`, `lk_shape`). */
+  function wasmCall(name, obj) {
+    const x = S.wasm, text = encoder.encode(JSON.stringify(obj));
+    const p = x.lk_alloc(text.length);
+    new Uint8Array(x.memory.buffer, p, text.length).set(text);
+    const out = JSON.parse(wasmText(x[name](p, text.length)));
+    x.lk_free(p, text.length);
+    return out;
+  }
+  function runChain(src, dst, w, h, params) {
+    const x = S.wasm, text = encoder.encode(JSON.stringify(params));
+    const p = x.lk_alloc(text.length);
+    new Uint8Array(x.memory.buffer, p, text.length).set(text);
+    const code = x.lk_render(src, dst, w, h, p, text.length);
+    x.lk_free(p, text.length);
+    return code;
+  }
+  function blit(canvas, ptr, w, h) {
+    canvas.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(S.wasm.memory.buffer, ptr, w * h * 4).slice(), w, h), 0, 0);
+  }
+
+  // Kacheln (siehe Swatch in core/src/tools): Grau- und Farbkeil, graue Fläche oder Weiß-Schwarz-Verlauf.
+  // Doppelte Auflösung für scharfe Kacheln (--tile ist 112 px).
+  const SW = { w: 224, h: 224, ramp: 0, flat: 0, gray: 0, dst: 0 };
+  // Look-Bildchen: das Bild (oder eine Ersatzszene), klein.
+  const TH = { w: 144, h: 80, src: 0, dst: 0, fromImage: false };
+  function prepareBuffers() {
+    const x = S.wasm, n = SW.w * SW.h * 4;
+    SW.ramp = x.lk_alloc(n); SW.flat = x.lk_alloc(n); SW.gray = x.lk_alloc(n); SW.dst = x.lk_alloc(n);
+    const a = new Uint8Array(x.memory.buffer, SW.ramp, n), f = new Uint8Array(x.memory.buffer, SW.flat, n), d = new Uint8Array(x.memory.buffer, SW.gray, n);
+    for (let y = 0; y < SW.h; y++) for (let i = 0; i < SW.w; i++) {
+      const o = (y * SW.w + i) * 4, u = i / (SW.w - 1);
+      let r, g, b;
+      if (y < SW.h / 2) r = g = b = u;
+      else {
+        const hh = u * 6, part = (shift) => { const q = (shift + hh) % 6; return 1 - Math.max(0, Math.min(q, 4 - q, 1)); };
+        [r, g, b] = [part(5), part(3), part(1)].map((c) => (0.45 + 0.55 * c) * 0.8);
+      }
+      a[o] = r * 255; a[o + 1] = g * 255; a[o + 2] = b * 255; a[o + 3] = 255;
+      f[o] = f[o + 1] = f[o + 2] = 165; f[o + 3] = 255;
+      // Weiß oben links, Schwarz unten rechts.
+      d[o] = d[o + 1] = d[o + 2] = Math.round(255 * (1 - (i / (SW.w - 1) + y / (SW.h - 1)) / 2)); d[o + 3] = 255;
+    }
+    const m = TH.w * TH.h * 4;
+    TH.src = x.lk_alloc(m); TH.dst = x.lk_alloc(m);
+    fillThumbSource();
+  }
+  /** Die Quelle der Look-Bildchen: das Bild, mittig auf 16:9 zugeschnitten, sonst eine Ersatzszene. */
+  function fillThumbSource() {
+    const c = new OffscreenCanvas(TH.w, TH.h), g = c.getContext("2d", { willReadFrequently: true });
+    if (S.image) {
+      const im = S.image, scale = Math.max(TH.w / im.w, TH.h / im.h), sw = TH.w / scale, sh = TH.h / scale;
+      g.drawImage(im.canvas, (im.w - sw) / 2, (im.h - sh) / 2, sw, sh, 0, 0, TH.w, TH.h);
+      TH.fromImage = true;
+    } else {
+      const sky = g.createLinearGradient(0, 0, 0, TH.h);
+      sky.addColorStop(0, "#4f6f96"); sky.addColorStop(0.58, "#e9c39a"); sky.addColorStop(0.62, "#2f6f7d");
+      sky.addColorStop(0.82, "#1b4654"); sky.addColorStop(0.84, "#6f7a3e"); sky.addColorStop(1, "#39441f");
+      g.fillStyle = sky; g.fillRect(0, 0, TH.w, TH.h);
+      g.fillStyle = "#fff1d0"; g.beginPath(); g.arc(TH.w * 0.66, TH.h * 0.5, TH.h * 0.07, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#c9a07e"; g.fillRect(TH.w * 0.3, TH.h * 0.66, TH.w * 0.08, TH.h * 0.12);
+      TH.fromImage = false;
+    }
+    const data = g.getImageData(0, 0, TH.w, TH.h).data;
+    new Uint8Array(S.wasm.memory.buffer, TH.src, data.length).set(data);
+  }
+
+  // --- Zeichnen -------------------------------------------------------------------------------
+  // Die Vorschau rechnet in Anzeigegröße (Bildschirmpixel, höchstens so groß wie das geholte Bild).
+  // Mit Grafikkarte (WebGL2): Die Farb-Abschnitte der Kette rechnet Rust als LUT (`lk_gpu`, aus dem
+  // Zwischenspeicher), die Karte schlägt nur nach und rechnet die Vignette. Ohne Grafikkarte: dieselbe
+  // Kette im Modul, auf mehrere Worker verteilt (Streifen des Bildes).
+
+  const view = $("view");
+  // `?cpu` in der Adresse erzwingt den Weg ohne Grafikkarte (zum Prüfen).
+  const gl = new URLSearchParams(location.search).has("cpu") ? null : view.getContext("webgl2", { premultipliedAlpha: false, antialias: false });
+  const ctx = gl ? null : view.getContext("2d");
+  let frame = 0;
+  /** Vorschau und Kacheln neu rechnen, höchstens einmal pro Bild des Bildschirms. */
+  function draw() {
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      if (!S.wasm) return;
+      drawSwatches();
+      if (!S.image) return;
+      const params = paramsFor(S.chain, S.strength), before = S.compare || S.holdCompare;
+      const desc = gl && gpuChain(params, view.width, view.height);
+      let done = false;
+      if (desc && desc.stages) try { glDraw(desc, before); done = true; } catch (e) { console.error(e); } // etwa GLSL eines Tools fehlerhaft
+      if (!done) cpuDraw(view.width, view.height, before ? null : params);
+      drawOverlay();
+    });
+  }
+
+  /** Die Kette für die Grafikkarte (`lk_gpu`). Die LUT-Zeiger gelten bis zum nächsten Aufruf. */
+  function gpuChain(params, w, h) {
+    const x = S.wasm, text = encoder.encode(JSON.stringify(params));
+    const p = x.lk_alloc(text.length);
+    new Uint8Array(x.memory.buffer, p, text.length).set(text);
+    const desc = JSON.parse(wasmText(x.lk_gpu(p, text.length, w, h)));
+    x.lk_free(p, text.length);
+    return desc;
+  }
+
+  // --- Grafikkarte ----------------------------------------------------------------------------
+  const GL = { programs: new Map(), luts: new Map(), src: null };
+  const VERTEX = `#version 300 es
+void main() { vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2); gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0); }`;
+  /** Ein Programm je Abfolge der Abschnitte: LUTs und der GLSL-Code der Tools, die von der Lage
+      abhängen (`Gpu` in core/src/lib.rs, der Code steht in der Datei des Tools). */
+  function glProgram(stages) {
+    const key = stages.map((s) => (s.lut ? "L" : s.code)).join("\u0000");
+    let prog = GL.programs.get(key);
+    if (prog) return prog;
+    let decl = "", steps = "";
+    const codes = [...new Set(stages.filter((s) => !s.lut).map((s) => s.code))];
+    codes.forEach((code, k) => { decl += `vec3 op${k}(vec3 c, vec2 p, float u[12]) {\n  ${code}\n}\n`; });
+    stages.forEach((s, i) => {
+      if (s.lut) { decl += `uniform sampler3D lut${i};\n`; steps += `  c = texture(lut${i}, (clamp(c, 0.0, 1.0) * (lutN - 1.0) + 0.5) / lutN).rgb;\n`; }
+      else { decl += `uniform float u${i}[12];\n`; steps += `  c = op${codes.indexOf(s.code)}(c, p, u${i});\n`; }
+    });
+    const fragment = `#version 300 es
+precision highp float; precision highp sampler3D;
+uniform sampler2D src; uniform vec2 size; uniform float mixAmt; uniform float lutN;
+out vec4 color;
+// Wie smoothstep, luma, srgb_to_linear und linear_to_srgb in core/src/lib.rs.
+float ss(float a, float b, float x) { if (b <= a) return x < a ? 0.0 : 1.0; float t = clamp((x - a) / (b - a), 0.0, 1.0); return t * t * (3.0 - 2.0 * t); }
+float luma(vec3 c) { return dot(c, vec3(0.2126, 0.7152, 0.0722)); }
+vec3 lin(vec3 c) { return mix(pow((max(c, 0.0) + 0.055) / 1.055, vec3(2.4)), c / 12.92, lessThanEqual(c, vec3(0.04045))); }
+vec3 srgb(vec3 c) { return mix(1.055 * pow(max(c, 0.0), vec3(1.0 / 2.4)) - 0.055, c * 12.92, lessThanEqual(c, vec3(0.0031308))); }
+${decl}void main() {
+  vec2 p = vec2(gl_FragCoord.x, size.y - gl_FragCoord.y);
+  vec4 s = texture(src, p / size);
+  vec3 c = s.rgb;
+${steps}  color = vec4(max(s.rgb + (c - s.rgb) * mixAmt, 0.0), s.a);
+}`;
+    const shader = (type, text) => {
+      const sh = gl.createShader(type); gl.shaderSource(sh, text); gl.compileShader(sh);
+      if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+      return sh;
+    };
+    prog = gl.createProgram();
+    gl.attachShader(prog, shader(gl.VERTEX_SHADER, VERTEX));
+    gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, fragment));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+    GL.programs.set(key, prog);
+    return prog;
+  }
+  /** Die LUT als 3D-Textur, je LUT nur einmal hochgeladen. */
+  function glLut(stage) {
+    let tex = GL.luts.get(stage.lut);
+    if (tex) return tex;
+    if (GL.luts.size >= 24) { GL.luts.forEach((t) => gl.deleteTexture(t)); GL.luts.clear(); }
+    const n = Math.round(Math.cbrt(stage.len / 3));
+    tex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_3D, tex);
+    gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGB16F, n, n, n, 0, gl.RGB, gl.FLOAT, new Float32Array(S.wasm.memory.buffer, stage.ptr, stage.len));
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.LINEAR], [gl.TEXTURE_MAG_FILTER, gl.LINEAR], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_3D, k, v);
+    GL.luts.set(stage.lut, tex);
+    return tex;
+  }
+  /** Das geholte Bild als Textur, mit Mipmaps für saubere Verkleinerung. */
+  function glSource() {
+    const im = S.image;
+    if (!GL.src) GL.src = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, GL.src);
+    gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, gl.NONE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, im.w, im.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(S.wasm.memory.buffer, im.src, im.n));
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+  }
+  function glDraw(desc, before) {
+    const prog = glProgram(desc.stages);
+    const u = (name) => gl.getUniformLocation(prog, name);
+    gl.useProgram(prog);
+    gl.viewport(0, 0, view.width, view.height);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, GL.src); gl.uniform1i(u("src"), 0);
+    gl.uniform2f(u("size"), view.width, view.height);
+    gl.uniform1f(u("mixAmt"), before ? 0 : desc.mix);
+    desc.stages.forEach((s, i) => {
+      if (s.lut) {
+        // Erst hochladen (bindet an die aktive Einheit), dann an die eigene Einheit binden.
+        const tex = glLut(s);
+        gl.uniform1f(u("lutN"), Math.round(Math.cbrt(s.len / 3)));
+        gl.activeTexture(gl.TEXTURE1 + i); gl.bindTexture(gl.TEXTURE_3D, tex); gl.uniform1i(u(`lut${i}`), 1 + i);
+      } else gl.uniform1fv(u(`u${i}`), s.values);
+    });
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  // --- Ohne Grafikkarte: Worker ---------------------------------------------------------------
+  const WORKER = `"use strict";
+let ready;
+onmessage = async (e) => {
+  const m = e.data;
+  if (m.module) { ready = WebAssembly.instantiate(m.module, {}); return; }
+  const x = (await ready).exports, n = m.pixels.length, t = new TextEncoder().encode(m.params);
+  const p = x.lk_alloc(n), q = x.lk_alloc(t.length);
+  new Uint8Array(x.memory.buffer, p, n).set(m.pixels);
+  new Uint8Array(x.memory.buffer, q, t.length).set(t);
+  x.lk_render(p, p, m.w, m.h, q, t.length);
+  const pixels = new Uint8Array(x.memory.buffer, p, n).slice();
+  x.lk_free(p, n); x.lk_free(q, t.length);
+  postMessage({ pixels }, [pixels.buffer]);
+};`;
+  const CPU = { workers: null, scaled: null, scaledKey: "", busy: false, again: false };
+  function startWorkers() {
+    CPU.workers = [];
+    try {
+      const url = URL.createObjectURL(new Blob([WORKER], { type: "text/javascript" }));
+      const n = Math.min(4, Math.max(1, (navigator.hardwareConcurrency || 2) - 1));
+      for (let i = 0; i < n; i++) { const w = new Worker(url); w.postMessage({ module: S.module }); CPU.workers.push(w); }
+    } catch (e) { CPU.workers = []; } // dann rechnet die Seite selbst
+  }
+  /** Das Bild in Anzeigegröße, einmal je Größe verkleinert. */
+  function scaledSource(w, h) {
+    const k = `${S.image.id}:${w}x${h}`;
+    if (CPU.scaledKey !== k) {
+      const g = new OffscreenCanvas(w, h).getContext("2d", { willReadFrequently: true });
+      g.imageSmoothingQuality = "high";
+      g.drawImage(S.image.canvas, 0, 0, w, h);
+      CPU.scaled = g.getImageData(0, 0, w, h); CPU.scaledKey = k;
+    }
+    return CPU.scaled;
+  }
+  async function cpuDraw(w, h, params) {
+    if (CPU.busy) { CPU.again = true; return; } // die nächste Rechnung nimmt den neuesten Stand
+    CPU.busy = true;
+    try {
+      const img = scaledSource(w, h);
+      const out = params ? new ImageData(await cpuRun(img, w, h, params), w, h) : img;
+      if (ctx && view.width === w && view.height === h) ctx.putImageData(out, 0, 0);
+      else if (gl) { // Kette läuft nicht auf der Grafikkarte: Ergebnis als Bild zeigen
+        gl.bindTexture(gl.TEXTURE_2D, GL.src); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(out.data.buffer));
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        glDraw({ mix: 0, stages: [] }, true);
+        glSource();
+      }
+    } finally {
+      CPU.busy = false;
+      if (CPU.again) { CPU.again = false; draw(); }
+    }
+  }
+  /** Die Kette auf `img`, in Streifen auf die Worker verteilt (ohne Worker: hier). */
+  function cpuRun(img, w, h, params) {
+    if (!CPU.workers) startWorkers();
+    const out = new Uint8ClampedArray(w * h * 4), n = CPU.workers.length;
+    if (!n) {
+      const x = S.wasm, p = x.lk_alloc(out.length);
+      new Uint8Array(x.memory.buffer, p, out.length).set(img.data);
+      runChain(p, p, w, h, params);
+      out.set(new Uint8Array(x.memory.buffer, p, out.length));
+      x.lk_free(p, out.length);
+      return Promise.resolve(out);
+    }
+    const rows = Math.ceil(h / n);
+    return Promise.all(CPU.workers.map((worker, i) => new Promise((resolve) => {
+      const y0 = i * rows, bh = Math.min(rows, h - y0);
+      if (bh <= 0) return resolve();
+      const band = img.data.slice(y0 * w * 4, (y0 + bh) * w * 4);
+      // Die Lage des Streifens im Bild, damit die Vignette nahtlos bleibt.
+      const text = JSON.stringify({ ...params, _image: { x: 0, y: y0, canvasWidth: w, canvasHeight: h } });
+      worker.onmessage = (e) => { out.set(e.data.pixels, y0 * w * 4); resolve(); };
+      worker.onerror = () => { CPU.workers = []; CPU.again = true; resolve(); }; // Worker gesperrt: ab dann ohne
+      worker.postMessage({ pixels: band, w, h: bh, params: text }, [band.buffer]);
+    }))).then(() => out);
+  }
+
+  function drawSwatch(canvas, tool) {
+    const src = SW[TOOLS[tool.type].swatch] || SW.ramp;
+    runChain(src, SW.dst, SW.w, SW.h, paramsFor([tool], 100));
+    blit(canvas, SW.dst, SW.w, SW.h);
+    // Der Schein: dieselbe Vorschau winzig, weichgezeichnet macht sie das CSS.
+    const glow = canvas.parentElement.querySelector(".glow");
+    if (glow) glow.getContext("2d").drawImage(canvas, 0, 0, glow.width, glow.height);
+  }
+  /** Eine Kachel: Schein, Vorschau, Glas. */
+  function tileEl() {
+    const tile = el("span", "tile");
+    const glow = el("canvas", "glow"); glow.width = glow.height = 24;
+    const sw = el("canvas", "swatch"); sw.width = SW.w; sw.height = SW.h;
+    tile.append(glow, sw, el("span", "glass"));
+    return tile;
+  }
+  /** Nur Kacheln neu rechnen, deren Tool sich geändert hat (Strength wirkt auf Kacheln nicht). */
+  function drawSwatches() {
+    for (const t of S.chain) {
+      const canvas = document.querySelector(`.link[data-uid="${t.uid}"] canvas.swatch`);
+      const key = JSON.stringify([t.on, t.v]);
+      if (canvas && canvas.dataset.key !== key) { drawSwatch(canvas, t); canvas.dataset.key = key; }
+    }
+  }
+  function drawThumbs() {
+    if (!S.left || !S.wasm) return;
+    for (const look of allLooks()) {
+      const canvas = document.querySelector(`.look[data-id="${CSS.escape(look.id)}"] canvas`);
+      if (!canvas) continue;
+      runChain(TH.src, TH.dst, TH.w, TH.h, paramsFor(look.chain, 100));
+      blit(canvas, TH.dst, TH.w, TH.h);
+    }
+  }
+
+  /** Das Bild so groß wie möglich in den Bildbereich, ohne es zu verzerren. */
+  function fit() {
+    if (!S.image) return;
+    const stage = $("stage"), notes = $("notes");
+    const aw = stage.clientWidth - 48, ah = stage.clientHeight - 48 - (notes.childElementCount ? notes.offsetHeight + 12 : 0);
+    const k = Math.max(0.05, Math.min(aw / S.image.w, ah / S.image.h));
+    const cssW = Math.floor(S.image.w * k);
+    view.style.width = `${cssW}px`;
+    view.style.height = `${Math.floor(S.image.h * k)}px`;
+    // Gerechnet wird in Bildschirmpixeln, höchstens in der Größe des geholten Bildes.
+    const w = Math.max(1, Math.min(S.image.w, Math.round(cssW * (window.devicePixelRatio || 1))));
+    const h = Math.max(1, Math.round(w * S.image.h / S.image.w));
+    if (view.width !== w || view.height !== h) { view.width = w; view.height = h; draw(); }
+  }
+  new ResizeObserver(fit).observe($("stage"));
+
+  // --- Oberfläche: Kette ----------------------------------------------------------------------
+
+  const chainRow = $("chainRow");
+  function renderChain() {
+    chainRow.textContent = "";
+    if (!S.chain.length) {
+      const add = el("button", "add-tool", "+");
+      add.type = "button"; add.title = "Add a tool"; add.setAttribute("aria-label", "Add a tool");
+      add.addEventListener("click", () => setRight(true));
+      chainRow.append(add);
+    }
+    S.chain.forEach((t, i) => {
+      const d = TOOLS[t.type];
+      const link = el("div", "link");
+      link.dataset.uid = t.uid;
+      if (S.drag && S.drag.uid === t.uid) link.dataset.dragging = "true";
+      const slot = el("div", "slot"); slot.append(el("i")); slot.dataset.over = String(S.over === i);
+      const card = el("div", "card");
+      card.draggable = true;
+      card.dataset.on = String(t.on);
+      if (S.sel === t.uid) card.setAttribute("aria-current", "true");
+      const pick = el("button", "pick");
+      pick.type = "button";
+      pick.setAttribute("aria-pressed", String(S.sel === t.uid));
+      pick.title = `${d.name}: show its controls. Drag to move. Delete or right-click to remove. Alt+←/→ moves.`;
+      pick.append(tileEl(), el("span", "card-name", d.name));
+      pick.addEventListener("click", () => select(t.uid));
+      pick.addEventListener("keydown", (e) => {
+        if (e.altKey && (e.key === "ArrowLeft" || e.key === "ArrowRight")) { e.preventDefault(); moveTool(t.uid, e.key === "ArrowLeft" ? -1 : 1); }
+      });
+      const power = el("button", "power");
+      power.type = "button";
+      power.setAttribute("aria-label", `Turn ${d.name} ${t.on ? "off" : "on"}`);
+      power.title = t.on ? "On – click to turn off" : "Off – click to turn on";
+      power.addEventListener("click", () => toggleTool(t.uid));
+      card.append(pick, power);
+      card.addEventListener("contextmenu", (e) => { e.preventDefault(); select(t.uid); showMenu(e.clientX, e.clientY, [["Delete", () => removeTool(t.uid)]]); });
+      card.addEventListener("dragstart", (e) => startDrag({ uid: t.uid }, e));
+      card.addEventListener("dragend", endDrag);
+      link.append(slot, card);
+      chainRow.append(link);
+    });
+    const end = el("div", "slot"); end.append(el("i")); end.dataset.over = String(S.over === S.chain.length && S.chain.length > 0);
+    if (S.chain.length) chainRow.append(end);
+    drawSwatches();
+    renderToolboxState();
+  }
+  /** Nur die Einfügemarke neu setzen (während des Ziehens). */
+  function syncOver() {
+    const slots = chainRow.querySelectorAll(".slot");
+    slots.forEach((s, i) => { s.dataset.over = String(S.over === i); });
+  }
+
+  /** Ein kleines Kontextmenü an der Mausposition; `items` sind [Beschriftung, Aktion]. */
+  function showMenu(x, y, items) {
+    closeMenu();
+    const menu = el("div", "menu"); menu.id = "menu"; menu.setAttribute("role", "menu");
+    for (const [label, act] of items) {
+      const b = el("button", "", label); b.type = "button"; b.setAttribute("role", "menuitem");
+      b.addEventListener("click", () => { closeMenu(); act(); });
+      menu.append(b);
+    }
+    document.body.append(menu);
+    const r = menu.getBoundingClientRect();
+    menu.style.left = `${Math.min(x, innerWidth - r.width - 8)}px`;
+    menu.style.top = `${Math.min(y, innerHeight - r.height - 8)}px`;
+    menu.querySelector("button").focus();
+  }
+  function closeMenu() { const m = $("menu"); if (m) m.remove(); }
+  document.addEventListener("pointerdown", (e) => { if (!e.target.closest("#menu")) closeMenu(); });
+
+  function select(uid) {
+    S.sel = uid;
+    S.panel = true;
+    renderChain(); renderPanel(); renderTop(); draw();
+  }
+  function changed() { S.dirty = true; renderFooter(); remember(); }
+  function toggleTool(uid) {
+    const t = S.chain.find((x) => x.uid === uid);
+    if (!t) return;
+    t.on = !t.on;
+    S.sel = uid;
+    changed(); renderChain(); renderPanel(); draw();
+  }
+  function removeTool(uid) {
+    const i = S.chain.findIndex((x) => x.uid === uid);
+    if (i < 0) return;
+    S.chain.splice(i, 1);
+    if (S.sel === uid) S.sel = (S.chain[i] || S.chain[i - 1] || {}).uid || null;
+    changed(); renderChain(); renderPanel(); draw();
+    const next = S.sel && chainRow.querySelector(`.link[data-uid="${S.sel}"] .pick`);
+    if (next) next.focus();
+  }
+  function moveTool(uid, dir) {
+    const i = S.chain.findIndex((x) => x.uid === uid), j = i + dir;
+    if (i < 0 || j < 0 || j >= S.chain.length) return;
+    [S.chain[i], S.chain[j]] = [S.chain[j], S.chain[i]];
+    changed(); renderChain(); draw();
+    chainRow.querySelector(`.link[data-uid="${uid}"] .pick`).focus();
+  }
+  function addTool(type, at) {
+    if (S.chain.length >= SLOTS) return;
+    const t = { uid: newUid(), type, on: true, v: defaultsOf(type) };
+    S.chain.splice(at === undefined ? S.chain.length : at, 0, t);
+    S.sel = t.uid; S.panel = true;
+    changed(); renderChain(); renderPanel(); renderTop(); draw();
+  }
+
+  // Ziehen: aus dem Werkzeugkasten in die Kette, innerhalb der Kette, oder aus ihr heraus.
+  function startDrag(info, e) {
+    S.drag = info;
+    e.dataTransfer.effectAllowed = info.uid ? "move" : "copy";
+    try { e.dataTransfer.setData("text/plain", info.uid || info.type); } catch (err) { /* egal */ }
+    // Erst nach dem Start blass werden, sonst nimmt der Browser das blasse Bild als Vorschau.
+    if (info.uid) setTimeout(() => {
+      const l = S.drag === info && chainRow.querySelector(`.link[data-uid="${info.uid}"]`);
+      if (l) l.dataset.dragging = "true";
+    }, 0);
+  }
+  function endDrag() {
+    const wasFromBox = S.drag && !S.drag.uid;
+    S.drag = null; S.over = null; showRemoveHint(false);
+    if (wasFromBox) setRight(false);
+    renderChain();
+  }
+  function indexAt(x) {
+    const cards = chainRow.querySelectorAll(".card");
+    for (let i = 0; i < cards.length; i++) { const r = cards[i].getBoundingClientRect(); if (x < r.left + r.width / 2) return i; }
+    return cards.length;
+  }
+  function dropAt(index) {
+    const info = S.drag;
+    if (!info) return;
+    if (info.uid) {
+      const from = S.chain.findIndex((t) => t.uid === info.uid);
+      let at = index;
+      if (from >= 0) {
+        const [t] = S.chain.splice(from, 1);
+        if (from < at) at--;
+        S.chain.splice(at, 0, t);
+        if (at !== from) changed();
+        S.sel = info.uid;
+      }
+      S.drag = null; S.over = null;
+      renderChain(); renderPanel(); draw();
+    } else {
+      S.drag = null; S.over = null;
+      addTool(info.type, index);
+    }
+  }
+  $("chain").addEventListener("dragover", (e) => {
+    if (!S.drag || (!S.drag.uid && S.chain.length >= SLOTS)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = S.drag.uid ? "move" : "copy";
+    showRemoveHint(false);
+    const over = indexAt(e.clientX);
+    if (S.over !== over) { S.over = over; syncOver(); }
+  });
+  $("chain").addEventListener("dragleave", (e) => {
+    if (!$("chain").contains(e.relatedTarget)) { S.over = null; syncOver(); }
+  });
+  // Klick auf eine freie Stelle der Kette hebt die Auswahl auf; die Controls fahren ein.
+  $("chain").addEventListener("click", (e) => { if (!e.target.closest(".card, .add-tool") && S.sel) { S.sel = null; renderChain(); renderPanel(); draw(); } });
+  $("chain").addEventListener("drop", (e) => { e.preventDefault(); dropAt(S.over ?? indexAt(e.clientX)); });
+  // Ein Tool aus der Kette, das woanders losgelassen wird, fliegt raus.
+  document.addEventListener("dragover", (e) => {
+    if (!S.drag || !S.drag.uid || $("chain").contains(e.target)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    showRemoveHint(true);
+  });
+  document.addEventListener("drop", (e) => {
+    if (!S.drag || !S.drag.uid || $("chain").contains(e.target)) return;
+    e.preventDefault();
+    const uid = S.drag.uid;
+    S.drag = null; S.over = null; showRemoveHint(false);
+    removeTool(uid);
+  });
+  function showRemoveHint(on) {
+    if (S.removeHint === on) return;
+    S.removeHint = on;
+    const t = on && S.drag && S.chain.find((x) => x.uid === S.drag.uid);
+    $("removeHint").hidden = !t;
+    if (t) $("removeHint").textContent = `Release to remove ${TOOLS[t.type].name} from the chain`;
+  }
+
+  // --- Oberfläche: Werkzeugkasten -------------------------------------------------------------
+
+  function buildToolbox() {
+    const box = $("toolbox");
+    for (const type of Object.keys(TOOLS)) {
+      const b = el("button", "card");
+      b.type = "button"; b.draggable = true; b.dataset.type = type;
+      b.title = TOOLS[type].what;
+      b.append(tileEl(), el("span", "card-name", TOOLS[type].name));
+      b.addEventListener("click", () => addTool(type));
+      b.addEventListener("dragstart", (e) => startDrag({ type }, e));
+      b.addEventListener("dragend", endDrag);
+      box.append(b);
+      drawSwatch(b.querySelector(".swatch"), { type, on: true, v: defaultsOf(type) });
+    }
+  }
+  function renderToolboxState() {
+    const full = S.chain.length >= SLOTS;
+    for (const b of $("toolbox").children) b.disabled = full;
+    $("toolboxNote").textContent = full
+      ? `The chain is full (${SLOTS} tools). Remove one to add another.`
+      : "Click a tool to add it to the end of the chain, or drag it to a spot in the chain.";
+  }
+
+  // --- Oberfläche: Regler ---------------------------------------------------------------------
+
+  /** Die Füllung eines Schiebereglers: vom neutralen Wert (`data-origin`, sonst 0 bzw. das linke
+      Ende) bis zum Wert. Der Griff ist 16 px breit und läuft nicht über die Enden, die Füllung folgt seiner Mitte. */
+  function paintSlider(range) {
+    const min = Number(range.min), max = Number(range.max), value = Number(range.value);
+    const pos = (v) => ((v - min) / (max - min)) * 100;
+    const at = (v) => `calc(${pos(v)}% + ${8 - (pos(v) / 100) * 16}px)`;
+    const origin = range.dataset.origin !== undefined ? Number(range.dataset.origin) : Math.min(Math.max(0, min), max);
+    const [a, b] = [origin, value].sort((x, y) => x - y);
+    range.style.setProperty("--from", a === b ? at(b) : a === min ? "0%" : at(a));
+    range.style.setProperty("--to", at(b));
+  }
+
+  // --- Griffe auf dem Bild: die Ellipse der Vignette, die Punkte des Gradients ---------------
+  // Ellipse: dieselbe Form wie tools/vignette.rs (`Shape::new`); der Ring liegt in der Mitte des
+  // Übergangs. Punkte: x1/y1 und x2/y2 in % von Breite und Höhe ab der Mitte (tools/gradient.rs).
+  const overlay = $("overlay");
+  const clampTo = (p, v) => Math.min(Math.max(v, p.min), p.max);
+  function overlayTool() {
+    const t = S.chain.find((x) => x.uid === S.sel);
+    return t && t.on && TOOLS[t.type].overlay && S.image && current() && !(S.compare || S.holdCompare) ? t : null;
+  }
+  /** Die Form rechnet das Modul (`lk_shape`, dieselbe wie die Vignette). f und halfDiag braucht nur
+      das Ziehen an den Griffen, um aus den Radien Size und Aspect zurückzurechnen. */
+  function ellipse(t) {
+    const W = S.image.w, H = S.image.h, v = t.v;
+    const s = wasmCall("lk_shape", { width: W, height: H, size: v.size, softness: v.softness, centerX: v.centerX, centerY: v.centerY, aspect: v.aspect, anamorphic: v.anamorphic });
+    return { W, H, ...s, mid: (s.inner + 1) / 2, f: v.anamorphic > 0.5 ? Math.sqrt(W / H) : 1, halfDiag: 0.5 * Math.hypot(W, H) };
+  }
+  function drawOverlay() {
+    const t = overlayTool();
+    overlay.toggleAttribute("hidden", !t); // SVG kennt `.hidden` nicht, nur das Attribut
+    if (!t) return;
+    const kind = TOOLS[t.type].overlay, W = S.image.w, H = S.image.h, r = Math.max(W, H) / 140;
+    overlay.setAttribute("viewBox", `0 0 ${W} ${H}`);
+    overlay.setAttribute("preserveAspectRatio", "none");
+    $("ellipseUI").toggleAttribute("hidden", kind !== "ellipse");
+    $("pointsUI").toggleAttribute("hidden", kind !== "points");
+    if (kind === "points") {
+      const [x1, y1] = point(t, 1), [x2, y2] = point(t, 2);
+      Object.entries({ x1, y1, x2, y2 }).forEach(([k, v]) => $("link").setAttribute(k, v));
+      for (const h of $("pointsUI").querySelectorAll(".handle")) {
+        const [x, y] = point(t, h.dataset.point);
+        h.setAttribute("r", r); h.setAttribute("cx", x); h.setAttribute("cy", y);
+      }
+      return;
+    }
+    const e = ellipse(t), rx = e.rx * e.mid, ry = e.ry * e.mid;
+    Object.entries({ cx: e.cx, cy: e.cy, rx, ry }).forEach(([k, v]) => $("ring").setAttribute(k, v));
+    $("centre").setAttribute("d", `M${e.cx - 1.5 * r} ${e.cy}H${e.cx + 1.5 * r}M${e.cx} ${e.cy - 1.5 * r}V${e.cy + 1.5 * r}`);
+    for (const h of $("ellipseUI").querySelectorAll(".handle")) {
+      const sign = Number(h.dataset.sign), x = h.dataset.axis === "x";
+      h.setAttribute("r", r);
+      h.setAttribute("cx", e.cx + (x ? sign * rx : 0));
+      h.setAttribute("cy", e.cy + (x ? 0 : sign * ry));
+    }
+  }
+  /** Regler des gewählten Tools an seine Werte angleichen, ohne die Leiste neu zu bauen. */
+  function syncPanelValues(t) {
+    for (const p of TOOLS[t.type].params) {
+      const input = $(`p-${t.uid}-${p.k}`);
+      if (!input || p.toggle) continue;
+      input.value = t.v[p.k];
+      input.parentElement.querySelector("output").textContent = fmt(p, t.v[p.k]);
+      paintSlider(input);
+    }
+  }
+  /** Punkt `n` (1 = Start, 2 = Ende) des Gradients in Bildpixeln. */
+  const point = (t, n) => [S.image.w * (0.5 + t.v[`x${n}`] / 100), S.image.h * (0.5 + t.v[`y${n}`] / 100)];
+  let overlayDrag = null;
+  const toImage = (ev) => { const b = overlay.getBoundingClientRect(); return [(ev.clientX - b.left) * S.image.w / b.width, (ev.clientY - b.top) * S.image.h / b.height]; };
+  overlay.addEventListener("pointerdown", (ev) => {
+    const t = overlayTool(), target = ev.target;
+    if (!t || !(target.classList.contains("handle") || target.classList.contains("ring"))) return;
+    overlay.setPointerCapture(ev.pointerId);
+    const [x, y] = toImage(ev);
+    overlayDrag = target.dataset.point ? { point: target.dataset.point } : target.classList.contains("handle") ? { axis: target.dataset.axis } : { x, y, cx: t.v.centerX, cy: t.v.centerY };
+  });
+  overlay.addEventListener("pointermove", (ev) => {
+    const t = overlayTool();
+    if (!overlayDrag || !t) return;
+    const [x, y] = toImage(ev), param = (k) => TOOLS[t.type].params.find((p) => p.k === k);
+    if (overlayDrag.point) {
+      const n = overlayDrag.point;
+      t.v[`x${n}`] = clampTo(param(`x${n}`), (x / S.image.w - 0.5) * 100);
+      t.v[`y${n}`] = clampTo(param(`y${n}`), (y / S.image.h - 0.5) * 100);
+      syncPanelValues(t); changed(); draw();
+      return;
+    }
+    const e = ellipse(t);
+    if (overlayDrag.axis) {
+      // Ein Griff ändert nur seine Achse; Size und Aspect folgen daraus.
+      let rx = e.rx, ry = e.ry;
+      if (overlayDrag.axis === "x") rx = Math.max(4, Math.abs(x - e.cx)) / e.mid; else ry = Math.max(4, Math.abs(y - e.cy)) / e.mid;
+      t.v.size = clampTo(param("size"), Math.sqrt(rx * ry) / e.halfDiag * 100);
+      t.v.aspect = clampTo(param("aspect"), rx / ry / (e.f * e.f));
+    } else {
+      t.v.centerX = clampTo(param("centerX"), overlayDrag.cx + (x - overlayDrag.x) / e.W * 100);
+      t.v.centerY = clampTo(param("centerY"), overlayDrag.cy + (y - overlayDrag.y) / e.H * 100);
+    }
+    syncPanelValues(t); changed(); draw();
+  });
+  for (const type of ["pointerup", "pointercancel"]) overlay.addEventListener(type, () => { overlayDrag = null; });
+
+  function fmt(p, v) {
+    const t = Number(v).toFixed(p.digits || 0).replace("-", "−");
+    return (p.signed && v > 0 ? "+" : "") + t + (p.unit || "");
+  }
+  function renderPanel() {
+    const panel = $("panel");
+    const t = S.chain.find((x) => x.uid === S.sel);
+    panel.dataset.open = String(S.panel && !!t);
+    // Ohne gewähltes Tool fährt die Leiste mit ihrem letzten Inhalt ein.
+    if (!t) return;
+    panel.textContent = "";
+    const d = TOOLS[t.type];
+    panel.dataset.off = String(!t.on);
+    const head = el("div", "p-head");
+    const state = el("button", "p-state", t.on ? "ON" : "OFF");
+    state.type = "button"; state.setAttribute("role", "switch"); state.setAttribute("aria-checked", String(t.on));
+    state.setAttribute("aria-label", `${d.name} in the chain`);
+    state.addEventListener("click", () => toggleTool(t.uid));
+    head.append(el("div", "p-name", d.name), state);
+    panel.append(head, el("div", "p-what", d.what));
+    const params = el("div", "params");
+    for (const p of d.params) {
+      if (p.group) params.append(el("div", "group-head", p.group));
+      const wrap = el("div", "param");
+      const id = `p-${t.uid}-${p.k}`;
+      const label = el("label", "", p.label); label.htmlFor = id;
+      if (p.toggle) {
+        const button = el("button", "toggle"); button.type = "button"; button.id = id;
+        const show = () => { button.textContent = t.v[p.k] ? "On" : "Off"; button.setAttribute("aria-pressed", String(!!t.v[p.k])); };
+        button.addEventListener("click", () => { t.v[p.k] = t.v[p.k] ? 0 : 1; show(); changed(); draw(); });
+        show();
+        wrap.append(label, button);
+        params.append(wrap);
+        continue;
+      }
+      const out = el("output", "", fmt(p, t.v[p.k])); out.htmlFor = id;
+      const range = el("input");
+      Object.assign(range, { type: "range", id, min: p.min, max: p.max, step: p.step, value: t.v[p.k], title: `Double-click to set to ${fmt(p, p.neutral)}` });
+      range.dataset.origin = p.neutral;
+      const set = (v) => { t.v[p.k] = Number(v); range.value = v; out.textContent = fmt(p, t.v[p.k]); paintSlider(range); changed(); draw(); };
+      range.addEventListener("input", () => set(range.value));
+      range.addEventListener("dblclick", () => set(p.neutral));
+      wrap.append(label, range, out);
+      paintSlider(range);
+      if (p.hue) wrap.append(el("div", "hue-bar"));
+      params.append(wrap);
+    }
+    panel.append(params);
+  }
+
+  // --- Oberfläche: Looks ----------------------------------------------------------------------
+
+  function renderLooks() {
+    const box = $("looks");
+    box.textContent = "";
+    for (const look of allLooks()) {
+      const row = el("div", "look"); row.dataset.id = look.id;
+      const b = el("button", "look-btn"); b.type = "button";
+      b.setAttribute("aria-pressed", String(look.id === S.lookId));
+      const thumb = el("canvas"); thumb.width = TH.w; thumb.height = TH.h;
+      const text = el("span", "look-text");
+      const name = el("span", "look-name", look.name);
+      text.append(name, el("span", "look-meta", toolCount(look.chain.length)));
+      b.append(thumb, text);
+      b.addEventListener("click", () => applyLook(look));
+      row.append(b);
+      if (look.custom) {
+        b.addEventListener("dblclick", (e) => { e.preventDefault(); startRename(look, name); });
+        const del = el("button", "look-del", "×"); del.type = "button";
+        del.setAttribute("aria-label", `Delete ${look.name}`);
+        del.addEventListener("click", () => {
+          if (!confirm(`Delete “${look.name}”?`)) return;
+          S.custom = S.custom.filter((l) => l.id !== look.id);
+          if (S.lookId === look.id) { S.lookId = null; S.dirty = true; remember(); }
+          saveCustom(); renderLooks(); renderFooter();
+        });
+        row.append(del);
+      }
+      box.append(row);
+    }
+    const save = el("button", "save-look", "Save current look"); save.type = "button";
+    save.addEventListener("click", saveLook);
+    box.append(save);
+    drawThumbs();
+  }
+  function startRename(look, nameEl) {
+    const input = el("input", "look-rename");
+    input.value = look.name; input.maxLength = 64; input.setAttribute("aria-label", "Look name");
+    nameEl.replaceWith(input);
+    input.focus(); input.select();
+    S.renaming = look.id;
+    let done = false;
+    const finish = (keep) => {
+      if (done) return;
+      done = true;
+      S.renaming = null;
+      const v = input.value.trim();
+      if (keep && v) { look.name = v.slice(0, 64); saveCustom(); renderFooter(); }
+      renderLooks();
+    };
+    input.addEventListener("click", (e) => e.stopPropagation());
+    input.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") finish(true); if (e.key === "Escape") finish(false); });
+    input.addEventListener("blur", () => finish(true));
+  }
+  function applyLook(look) {
+    S.chain = instantiate(look.chain);
+    S.sel = null;
+    S.lookId = look.id; S.dirty = false;
+    S.strength = 100;
+    remember();
+    renderChain(); renderPanel(); renderFooter(); renderLooks(); draw();
+  }
+  function saveLook() {
+    const used = new Set(S.custom.map((l) => l.name));
+    let n = S.custom.length + 1;
+    while (used.has(`Custom look ${n}`)) n++;
+    const look = { id: `custom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`, name: `Custom look ${n}`, custom: true, chain: serialise(S.chain) };
+    S.custom.push(look);
+    S.lookId = look.id; S.dirty = false;
+    saveCustom(); remember();
+    renderLooks(); renderFooter();
+  }
+
+  // --- Oberfläche: Leisten, Kopf, Fuß, Bildbereich --------------------------------------------
+
+  function setLeft(on) {
+    if (S.left === on) return;
+    S.left = on; if (on) S.right = false;
+    $("looksFly").hidden = !on; $("leftBtn").setAttribute("aria-expanded", String(on));
+    $("toolsFly").hidden = !S.right; $("rightBtn").setAttribute("aria-expanded", String(S.right));
+    if (on) renderLooks();
+  }
+  function setRight(on) {
+    if (S.right === on) return;
+    S.right = on; if (on) S.left = false;
+    $("toolsFly").hidden = !on; $("rightBtn").setAttribute("aria-expanded", String(on));
+    $("looksFly").hidden = !S.left; $("leftBtn").setAttribute("aria-expanded", String(S.left));
+  }
+  $("leftRail").addEventListener("mouseenter", () => setLeft(true));
+  $("leftRail").addEventListener("mouseleave", () => { if (!S.renaming) setLeft(false); });
+  $("leftBtn").addEventListener("click", () => setLeft(true));
+  $("leftClose").addEventListener("click", () => setLeft(false));
+  $("rightRail").addEventListener("mouseenter", () => setRight(true));
+  $("rightRail").addEventListener("mouseleave", () => { if (!S.drag) setRight(false); });
+  $("rightBtn").addEventListener("click", () => setRight(true));
+
+  const key = (d) => (d ? `${d.name}\n${d.revision}` : "");
+  const rgb = () => !!S.doc && S.doc.mode === "Rgb";
+  // Gehört das Bild im Speicher zum Dokument, das in PhotoCraft gerade aktiv ist?
+  const current = () => S.connected && !!S.doc && !!S.image && !!S.fetched && S.fetched.name === S.doc.name;
+
+  function renderTop() {
+    const d = S.doc;
+    $("lamp").classList.toggle("on", S.connected);
+    $("docName").textContent = d ? d.name : (S.connected ? "No image open" : "Not connected");
+    $("docMeta").textContent = d ? `${d.width} × ${d.height} px · ${d.depth}-bit${S.demo ? " · demo" : ""}` : "";
+    document.title = d ? `${d.name} – Looksmaxxer` : "Looksmaxxer";
+    $("reload").disabled = !(S.connected && S.doc) || !!S.busy;
+    $("reload").textContent = S.busy === "fetch" ? "Reloading…" : "Reload image";
+    $("compare").setAttribute("aria-pressed", String(S.compare || S.holdCompare));
+    $("togglePanel").setAttribute("aria-pressed", String(S.panel));
+  }
+
+  function renderFooter() {
+    const look = allLooks().find((l) => l.id === S.lookId);
+    $("lookName").textContent = (look ? look.name : "Untitled") + (S.dirty && look ? " · modified" : "");
+    $("strength").value = S.strength;
+    paintSlider($("strength"));
+    $("strengthOut").textContent = `${Math.round(S.strength)}%`;
+    const ready = current() && rgb() && !S.blocked && !S.busy && key(S.fetched) === key(S.doc);
+    const apply = $("apply");
+    apply.disabled = !(ready && anyOn());
+    apply.textContent = S.busy === "apply" ? "Applying…" : "Apply";
+    apply.title = !S.connected ? "Not connected to PhotoCraft"
+      : !current() ? "Waiting for the image from PhotoCraft"
+      : !rgb() ? "Looksmaxxer only works on RGB documents"
+      : S.blocked ? S.blocked
+      : !anyOn() ? "The chain doesn't change anything"
+      : `Apply the chain to the layer “${S.doc.activeLayer || "?"}” in PhotoCraft`;
+    $("cancel").disabled = !!S.busy;
+  }
+
+  function renderStage() {
+    let label = "", title = "", text = "", button = "";
+    if (!S.checked) {
+      label = "Starting"; title = "Looking for PhotoCraft…";
+    } else if (!S.connected) {
+      label = "PhotoCraft";
+      if (S.running && S.foreign) {
+        title = "PhotoCraft is connected to another program";
+        text = "Its control channel was opened by another program, such as an older tool. One click quits PhotoCraft and starts it again for Looksmaxxer. PhotoCraft asks about unsaved changes first.";
+        button = "Restart PhotoCraft";
+      } else if (S.running) {
+        title = "PhotoCraft is running without its control channel";
+        text = "Looksmaxxer needs the control channel, and PhotoCraft can only switch it on at launch. One click quits PhotoCraft and starts it again with the channel. PhotoCraft asks about unsaved changes first.";
+        button = "Restart PhotoCraft";
+      } else {
+        title = S.busy === "launch" ? "PhotoCraft is starting" : "PhotoCraft isn't running";
+        text = "Looksmaxxer starts PhotoCraft with its control channel switched on. Open an image there and it shows up here.";
+        button = "Start PhotoCraft";
+      }
+    } else if (!S.doc) {
+      label = "PhotoCraft"; title = "No image is open in PhotoCraft";
+      text = "Open an image in PhotoCraft. Looksmaxxer picks it up by itself.";
+    } else if (!current()) {
+      label = "Image";
+      title = S.busy === "fetch" ? "Getting the image from PhotoCraft" : "The image isn't here yet";
+      text = S.busy === "fetch" ? "A copy of the document flashes up in PhotoCraft for a moment and closes again." : (S.blocked || "Click “Reload image” at the top.");
+    }
+    const empty = !!title;
+    $("frame").hidden = empty;
+    $("message").hidden = !empty;
+    $("msgLabel").textContent = label; $("msgTitle").textContent = title; $("msgText").textContent = text;
+    const action = $("msgAction");
+    action.hidden = !button;
+    action.disabled = !!S.busy;
+    action.textContent = S.busy === "launch" ? (S.running ? "Restarting PhotoCraft…" : "Starting PhotoCraft…") : button;
+    $("tag").hidden = empty || !(S.compare || S.holdCompare);
+    renderNotes();
+    fit();
+  }
+
+  function renderNotes() {
+    const notes = $("notes"); notes.textContent = "";
+    const d = S.fetched, im = S.image;
+    if (!current()) return;
+    const add = (text) => notes.append(el("div", "note", text));
+    if (S.demo) add("Demo mode: the image comes from a file, and Apply changes nothing.");
+    if (!rgb()) add("Looksmaxxer only works on RGB documents. Convert the document to RGB in PhotoCraft to use it here.");
+    if (d.layerCount > 1) add(`The document has ${d.layerCount} layers. The preview shows the whole image; Apply works on the active layer “${d.activeLayer || "?"}”.`);
+    if (d.activeLayerEmpty) add(`The active layer “${d.activeLayer || "?"}” is empty. Pick the layer with the image in PhotoCraft, or Apply won't change anything.`);
+    if (d.hasSelection) add("There's an active selection in PhotoCraft. Apply works inside the selection only; the preview shows the whole image.");
+    if (im.w < d.width || im.h < d.height) add(`Preview scaled down to ${im.w} × ${im.h} px. Apply works at full size.`);
+    if (S.blocked) add(S.blocked);
+  }
+
+  function render() { renderTop(); renderStage(); renderFooter(); }
+
+  function trouble(text) { $("troubleText").textContent = text; $("trouble").hidden = false; }
+  $("troubleClose").addEventListener("click", () => { $("trouble").hidden = true; });
+
+  // --- Abläufe --------------------------------------------------------------------------------
+
+  async function during(what, job) {
+    if (S.busy) return false;
+    S.busy = what; render();
+    let ok = false;
+    try { await job(); $("trouble").hidden = true; ok = true; }
+    catch (e) { trouble(e.message); if (e.code === "not_connected" || e.code === "foreign_channel") S.connected = false; }
+    finally { S.busy = null; render(); }
+    return ok;
+  }
+
+  async function fetchImage() {
+    const wanted = key(S.doc);
+    await during("fetch", async () => {
+      try {
+        const { doc, blob } = await api("/api/preview", {});
+        const bitmap = await createImageBitmap(blob, { colorSpaceConversion: "none", premultiplyAlpha: "none" });
+        const w = bitmap.width, h = bitmap.height, n = w * h * 4, x = S.wasm;
+        const scratch = new OffscreenCanvas(w, h).getContext("2d", { willReadFrequently: true });
+        scratch.drawImage(bitmap, 0, 0); bitmap.close();
+        const pixels = scratch.getImageData(0, 0, w, h).data;
+        if (S.image) x.lk_free(S.image.src, S.image.n);
+        S.image = null;
+        const src = x.lk_alloc(n);
+        if (!src) throw new Error("The preview doesn't have enough memory for this image.");
+        new Uint8Array(x.memory.buffer, src, n).set(pixels);
+        S.image = { w, h, n, src, canvas: scratch.canvas, id: ++seq };
+        S.fetched = doc; S.failedKey = null;
+        if (gl) glSource();
+        fillThumbSource();
+        fit();
+      } catch (e) { S.failedKey = wanted; throw e; }
+    });
+    draw(); drawThumbs();
+  }
+
+  let polling = false;
+  async function poll() {
+    // Ein verdecktes Fenster fragt nicht nach, außer beim ersten Mal.
+    if (polling || S.busy || S.ended || (S.checked && document.visibilityState !== "visible")) return;
+    polling = true;
+    try {
+      let st;
+      try { st = await api("/api/status"); }
+      catch (e) {
+        trouble(e.message);
+        return;
+      }
+      if (S.busy) return;
+      S.checked = true;
+      S.connected = !!st.connected; S.running = !!st.photocraftRunning; S.foreign = !!st.foreign; S.demo = !!st.demo;
+      S.doc = st.connected ? st.document : null;
+      S.blocked = st.connected ? st.blocked : null;
+      if (!S.connected || !S.doc) S.fetched = null;
+      render();
+      const k = key(S.doc);
+      if (S.connected && S.doc && !S.blocked && k !== key(S.fetched) && k !== S.failedKey) await fetchImage();
+    } finally { polling = false; }
+  }
+
+  $("msgAction").addEventListener("click", async () => {
+    await during("launch", () => api(S.running ? "/api/restart" : "/api/launch", {}));
+    poll();
+  });
+  $("reload").addEventListener("click", () => { S.failedKey = null; fetchImage(); });
+
+  // Apply und Cancel schließen das Fenster, wie bei einem Plug-in-Dialog. Lässt der Browser das
+  // Schließen nicht zu, bleibt ein Hinweis stehen.
+  function end(kind, layer) {
+    S.ended = kind;
+    const text = {
+      applied: ["Done", "Look applied", `PhotoCraft applied the chain to the layer “${layer || "?"}”. It's one step in PhotoCraft's history; Cmd+Z undoes it there. You can close this window.`, "Keep working"],
+      cancelled: ["Cancelled", "Nothing changed", "The layer in PhotoCraft stays as it was. You can close this window.", "Back to the look"],
+    }[kind];
+    $("endLabel").textContent = text[0]; $("endTitle").textContent = text[1]; $("endText").textContent = text[2];
+    $("endBack").textContent = text[3]; $("endBack").hidden = !text[3];
+    $("curtain").hidden = false;
+    if (text[3]) $("endBack").focus();
+    // Im Looksmaxxer-Fenster schließt das Programm das Fenster; im Browser (zum Testen) bleibt der Hinweis.
+    setTimeout(() => (window.ipc ? window.ipc.postMessage("close") : window.close()), kind === "applied" ? 700 : 150);
+  }
+  $("endBack").addEventListener("click", () => { S.ended = null; $("curtain").hidden = true; poll(); });
+  $("apply").addEventListener("click", async () => {
+    let layer = "";
+    const ok = await during("apply", async () => {
+      const r = await api("/api/apply", { params: paramsFor(S.chain, S.strength), document: { name: S.fetched.name, revision: S.fetched.revision } });
+      S.doc = r.document; layer = r.document.activeLayer;
+    });
+    if (ok) { await rememberNow(); end("applied", layer); }
+  });
+  $("cancel").addEventListener("click", async () => { await rememberNow(); end("cancelled"); });
+
+  $("strength").addEventListener("input", (e) => { S.strength = Number(e.target.value); renderFooter(); remember(); draw(); });
+  $("strength").addEventListener("dblclick", () => { S.strength = 100; renderFooter(); remember(); draw(); });
+  $("togglePanel").addEventListener("click", () => { S.panel = !S.panel; renderPanel(); renderTop(); });
+
+  // Vorher: der Schalter oben, oder Taste V gedrückt halten.
+  const setCompare = () => { renderTop(); $("tag").hidden = !S.image || !(S.compare || S.holdCompare); draw(); };
+  $("compare").addEventListener("click", () => { S.compare = !S.compare; setCompare(); });
+  const typing = (e) => e.target instanceof HTMLInputElement && e.target.type !== "range";
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      // Erst Menü und Leisten schließen, beim nächsten Esc die Auswahl aufheben.
+      const somethingOpen = !!$("menu") || S.left || S.right;
+      setLeft(false); setRight(false); closeMenu();
+      if (!somethingOpen && S.sel) { S.sel = null; renderChain(); renderPanel(); draw(); }
+    }
+    // Entf/Backspace löscht das gewählte Tool der Kette, außer beim Tippen oder an einem Regler.
+    const field = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement || e.target.isContentEditable;
+    if ((e.key === "Delete" || e.key === "Backspace") && !field && !e.metaKey && !e.ctrlKey && S.chain.some((t) => t.uid === S.sel)) { e.preventDefault(); closeMenu(); removeTool(S.sel); }
+    if ((e.key === "v" || e.key === "V") && !e.repeat && !typing(e) && !e.metaKey && !e.ctrlKey) { S.holdCompare = true; setCompare(); }
+  });
+  window.addEventListener("keyup", (e) => { if (e.key === "v" || e.key === "V") { S.holdCompare = false; setCompare(); } });
+  window.addEventListener("blur", () => { if (S.holdCompare) { S.holdCompare = false; setCompare(); } });
+  document.addEventListener("visibilitychange", poll);
+
+
+  (async () => {
+    try {
+      const bytes = await (await fetch("/looksmaxxer.wasm")).arrayBuffer();
+      S.module = await WebAssembly.compile(bytes); // auch für die Worker
+      S.wasm = (await WebAssembly.instantiate(S.module, {})).exports;
+      const list = JSON.parse(wasmText(S.wasm.lk_tools()));
+      SLOTS = list.slots;
+      TOOLS = Object.fromEntries(list.tools.map((t) => [t.id, t]));
+      preparePresets();
+      prepareBuffers();
+    } catch (e) { trouble("The preview couldn't be loaded: " + e.message); return; }
+    buildToolbox();
+    let lib = { custom: [], last: null };
+    try { lib = await api("/api/library"); } catch (e) { trouble(`Saved looks couldn't be read: ${e.message}`); }
+    S.custom = (lib.custom || []).filter((l) => l && typeof l.id === "string" && Array.isArray(l.chain))
+      .map((l) => ({ id: l.id, name: String(l.name || "Custom look").slice(0, 64), custom: true, chain: serialise(instantiate(l.chain)) }));
+    const last = lib.last;
+    if (last && Array.isArray(last.chain)) {
+      S.chain = instantiate(last.chain);
+      S.strength = Math.min(100, Math.max(0, Number(last.strength) || 0));
+      S.lookId = allLooks().some((l) => l.id === last.lookId) ? last.lookId : null;
+      S.dirty = !!last.dirty || !S.lookId;
+    } else {
+      applyLook(PRESETS.find((p) => p.id === "classic"));
+    }
+    S.sel = null;
+    renderChain(); renderPanel(); render(); draw();
+    await poll();
+    setInterval(poll, 2000);
+  })();
+
+  // Zum Nachsehen in der Konsole.
+  // Das Programm ruft `reopen`, wenn das Fenster nach Apply/Cancel wieder gezeigt wird.
+  window.looksmaxxer = { state: S, paramsFor, reopen: () => { S.ended = null; $("curtain").hidden = true; poll(); } };
+})();
+</script>
+</body>
+</html>
