@@ -7,6 +7,8 @@ Gesamtstärke. Derselbe Kern läuft als Plug-in in EffectCraft und in PhotoCraft
 Dieselben Tools gibt es auch frei sortiert, jedes beliebig oft: in **Looksmaxxer**, der Werkbank
 für PhotoCraft (siehe [looksmaxxer-app/LIESMICH.md](looksmaxxer-app/LIESMICH.md)).
 
+![Looksmaxxer mit Warm/Cool und Grad Exposure, die Griffe des Verlaufs liegen auf dem Bild](docs/screenshot.webp)
+
 ## Aufbau
 
 | Ordner | Inhalt |
