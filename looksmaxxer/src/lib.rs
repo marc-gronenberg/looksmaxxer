@@ -365,7 +365,10 @@ pub unsafe extern "C" fn lk_gpu(ptr: *const u8, len: u32, width: u32, height: u3
             .iter()
             .map(|s| match s {
                 GpuStage::Lut(l) => format!(r#"{{"lut":{},"ptr":{},"len":{}}}"#, l.id(), l.data().as_ptr() as usize, l.data().len()),
-                GpuStage::Op(g) => format!(r#"{{"code":"{}","values":[{}]}}"#, g.code.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n"), g.values.map(|v| v.to_string()).join(",")),
+                GpuStage::Op(g) => {
+                    let text = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"").replace('\n', "\\n");
+                    format!(r#"{{"code":"{}","lib":"{}","values":[{}]}}"#, text(g.code), text(g.lib), g.values.map(|v| v.to_string()).join(","))
+                }
             })
             .collect::<Vec<_>>()
             .join(",")

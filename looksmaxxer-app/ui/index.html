@@ -616,6 +616,7 @@ void main() { vec2 p = vec2((gl_VertexID << 1) & 2, gl_VertexID & 2); gl_Positio
     if (prog) return prog;
     let decl = "", steps = "";
     const codes = [...new Set(stages.filter((s) => !s.lut).map((s) => s.code))];
+    [...new Set(stages.filter((s) => s.lib).map((s) => s.lib))].forEach((lib) => { decl += lib + "\n"; });
     codes.forEach((code, k) => { decl += `vec3 op${k}(vec3 c, vec2 p, float u[12]) {\n  ${code}\n}\n`; });
     stages.forEach((s, i) => {
       if (s.lut) { decl += `uniform sampler3D lut${i};\n`; steps += `  c = texture(lut${i}, (clamp(c, 0.0, 1.0) * (lutN - 1.0) + 0.5) / lutN).rgb;\n`; }

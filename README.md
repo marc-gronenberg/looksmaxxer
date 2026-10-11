@@ -2,7 +2,8 @@
 
 Ein Grading-Effekt mit sechs Tools in fester Reihenfolge, jedes einzeln abschaltbar:
 Warm/Cool → Belichtung → Schulter → Teal-Orange → Lift/Gamma/Gain → Vignette, am Ende eine
-Gesamtstärke. Derselbe Kern läuft als Plug-in in EffectCraft und in PhotoCraft.
+Gesamtstärke und, in EffectCraft, Filmkorn (KORN, aus `core/src/tools/grain.rs`; jedes Bild
+eines Videos bekommt sein eigenes Muster). Derselbe Kern läuft als Plug-in in EffectCraft und in PhotoCraft.
 
 Dieselben Tools gibt es auch frei sortiert, jedes beliebig oft: in **Looksmaxxer**, der Werkbank
 für PhotoCraft (siehe [looksmaxxer-app/LIESMICH.md](looksmaxxer-app/LIESMICH.md)).

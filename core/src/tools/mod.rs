@@ -22,6 +22,7 @@ pub mod contrast;
 pub mod exposure;
 pub mod grad_exposure;
 pub mod gradient;
+pub mod grain;
 pub mod lift_gamma_gain;
 pub mod shoulder;
 pub mod teal_orange;
@@ -29,7 +30,7 @@ pub mod vignette;
 pub mod warm_cool;
 
 /// Alle Tools, in der Reihenfolge des Werkzeugkastens.
-pub const ALL: &[&ToolDef] = &[&warm_cool::TOOL, &exposure::TOOL, &contrast::TOOL, &shoulder::TOOL, &teal_orange::TOOL, &lift_gamma_gain::TOOL, &black_white::TOOL, &gradient::TOOL, &grad_exposure::TOOL, &vignette::TOOL];
+pub const ALL: &[&ToolDef] = &[&warm_cool::TOOL, &exposure::TOOL, &contrast::TOOL, &shoulder::TOOL, &teal_orange::TOOL, &lift_gamma_gain::TOOL, &black_white::TOOL, &gradient::TOOL, &grad_exposure::TOOL, &vignette::TOOL, &grain::TOOL];
 
 /// So viele Regler darf ein Tool haben (das PhotoCraft-Plug-in packt je Platz drei Zahlen zu je drei Werten).
 pub const MAX_PARAMS: usize = 9;
@@ -121,16 +122,17 @@ impl Param {
 }
 
 /// Die Arbeitsfläche in Pixeln, für Tools, die von der Lage abhängen. Pixelpositionen zählen ab
-/// ihrer linken oberen Ecke.
+/// ihrer linken oberen Ecke. `seed` unterscheidet die Bilder eines Videos (Korn), bei Fotos 0.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Frame {
     pub width: f32,
     pub height: f32,
+    pub seed: u32,
 }
 
 impl Frame {
     pub fn of(width: f32, height: f32) -> Frame {
-        Frame { width, height }
+        Frame { width, height, seed: 0 }
     }
 
     pub fn centre(&self) -> [f32; 2] {

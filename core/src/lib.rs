@@ -147,9 +147,11 @@ pub const GPU_VALUES: usize = 12;
 /// `code` ist der Rumpf einer GLSL-Funktion `vec3 f(vec3 c, vec2 p, float u[12])`: `c` sRGB-kodiert,
 /// `p` die Pixelmitte (Ursprung oben links), `u` die `values`. Zur Hand sind `ss` (wie
 /// [`smoothstep`]), `luma`, `lin` (sRGB → linear) und `srgb` (linear → sRGB). Er soll dasselbe
-/// rechnen wie [`PositionOp::pixel`].
+/// rechnen wie [`PositionOp::pixel`]. `lib` sind eigene GLSL-Funktionen dafür (oder leer), mit
+/// einem Präfix im Namen, damit sie sich mit denen anderer Tools nicht beißen.
 pub struct Gpu {
     pub code: &'static str,
+    pub lib: &'static str,
     pub values: [f32; GPU_VALUES],
 }
 
@@ -688,7 +690,7 @@ mod tests {
         Chain::new(&refs, frame, mix, pixels)
     }
 
-    const NOWHERE: tools::Frame = tools::Frame { width: 1.0, height: 1.0 };
+    const NOWHERE: tools::Frame = tools::Frame { width: 1.0, height: 1.0, seed: 0 };
 
     /// Die Vorgaben der festen Kette als frei sortierte, mit allen Tools an. `vignette` ist Stärke,
     /// Größe, Weichheit (die übrigen Regler der Vignette neutral: rund und mittig).

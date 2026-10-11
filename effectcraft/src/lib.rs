@@ -10,6 +10,7 @@
 
 use std::cell::RefCell;
 
+use look_kette_core::tools::{self, Frame, Step};
 use look_kette_core::{ColorSettings, Grade, LiftGammaGain, Look, Lut, Shoulder, TealOrange, Vignette, WarmCool};
 
 /// Das Manifest. Die Parameter kommen in genau dieser Reihenfolge als flache `f64`-Liste an
@@ -21,7 +22,7 @@ const MANIFEST: &str = r#"{
   "category": "Color Correction",
   "version": "0.2.0",
   "author": "Marc Gronenberg",
-  "description": "Feste Kette aus sechs Grading-Tools, jedes mit eigenem Schalter.",
+  "description": "Feste Kette aus sechs Grading-Tools und Filmkorn, jedes mit eigenem Schalter.",
   "params": [
     {"id": "wc_on", "name": "WARM/COOL", "type": "checkbox", "default": true},
     {"id": "wc_temp", "name": "· Temperatur", "type": "slider", "default": 25, "min": -100, "max": 100, "decimals": 1},
@@ -49,7 +50,17 @@ const MANIFEST: &str = r#"{
     {"id": "vg_amount", "name": "· Stärke", "type": "slider", "default": 35, "min": 0, "max": 100, "decimals": 1},
     {"id": "vg_soft", "name": "· Weichheit", "type": "slider", "default": 50, "min": 0, "max": 100, "decimals": 1},
 
-    {"id": "mix", "name": "GESAMTSTÄRKE", "type": "slider", "default": 100, "min": 0, "max": 100, "decimals": 1}
+    {"id": "mix", "name": "GESAMTSTÄRKE", "type": "slider", "default": 100, "min": 0, "max": 100, "decimals": 1},
+
+    {"id": "gr_on", "name": "KORN", "type": "checkbox", "default": false},
+    {"id": "gr_amount", "name": "· Stärke", "type": "slider", "default": 35, "min": 0, "max": 100, "decimals": 1},
+    {"id": "gr_size", "name": "· Größe", "type": "slider", "default": 1, "min": 0.2, "max": 5, "decimals": 2},
+    {"id": "gr_soft", "name": "· Weichheit", "type": "slider", "default": 30, "min": 0, "max": 100, "decimals": 1},
+    {"id": "gr_colour", "name": "· Farbkorn", "type": "slider", "default": 40, "min": 0, "max": 100, "decimals": 1},
+    {"id": "gr_shadows", "name": "· Tiefen", "type": "slider", "default": 60, "min": 0, "max": 100, "decimals": 1},
+    {"id": "gr_mids", "name": "· Mitten", "type": "slider", "default": 100, "min": 0, "max": 100, "decimals": 1},
+    {"id": "gr_highlights", "name": "· Lichter", "type": "slider", "default": 40, "min": 0, "max": 100, "decimals": 1},
+    {"id": "gr_hd", "name": "· High Definition (langsam)", "type": "checkbox", "default": false}
   ]
 }"#;
 
@@ -79,7 +90,10 @@ mod P {
     pub const VG_AMOUNT: usize = 28;
     pub const VG_SOFT: usize = 29;
     pub const MIX: usize = 30;
-    pub const COUNT: usize = 31;
+    /// Korn: Schalter, dann die Werte in der Reihenfolge von `tools::grain` (8 Stück).
+    pub const GR_ON: usize = 31;
+    pub const GR_VALUES: usize = 32;
+    pub const COUNT: usize = 40;
 }
 
 
@@ -135,7 +149,7 @@ pub extern "C" fn ec_alloc(bytes: i32) -> i32 {
 /// # Safety
 /// Der Host übergibt Zeiger in den Puffer, den `ec_alloc` geliefert hat.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn ec_render(pixels: i32, width: i32, height: i32, params: i32, nparams: i32, _time: f64, _scale: f64) -> i32 {
+pub unsafe extern "C" fn ec_render(pixels: i32, width: i32, height: i32, params: i32, nparams: i32, time: f64, _scale: f64) -> i32 {
     if (nparams as usize) < P::COUNT || width <= 0 || height <= 0 {
         return 1;
     }
@@ -152,6 +166,19 @@ pub unsafe extern "C" fn ec_render(pixels: i32, width: i32, height: i32, params:
         })
         .flatten();
     let mix = (p[P::MIX] as f32 / 100.0).clamp(0.0, 1.0);
+    // Korn nach dem Look, mit der Gesamtstärke; jeder Zeitpunkt bekommt sein eigenes Muster.
+    // Die Größe gilt relativ zur Pufferhöhe, eine verkleinerte Vorschau zeigt also dasselbe Korn.
+    let grain = (p[P::GR_ON] != 0.0)
+        .then(|| {
+            let mut values: Vec<f32> = p[P::GR_VALUES..P::COUNT].iter().map(|&v| v as f32).collect();
+            values[0] *= mix;
+            let seed = (time * 1000.0).round() as i64 as u32;
+            match (tools::grain::TOOL.build)(&values, &Frame { width: w as f32, height: h as f32, seed }) {
+                Some(Step::Position(op)) => Some(op),
+                _ => None,
+            }
+        })
+        .flatten();
 
     LUT.with(|slot| {
         let mut slot = slot.borrow_mut();
@@ -162,7 +189,7 @@ pub unsafe extern "C" fn ec_render(pixels: i32, width: i32, height: i32, params:
             *slot = Some((key.to_vec(), Lut::build(&grade)));
         }
         let look = Look::new(&grade, if use_lut { slot.as_ref().map(|(_, l)| l) } else { None }, vignette, mix);
-        if look.is_identity() {
+        if look.is_identity() && grain.is_none() {
             return;
         }
         for (row, line) in px.chunks_exact_mut(w).enumerate() {
@@ -174,7 +201,9 @@ pub unsafe extern "C" fn ec_render(pixels: i32, width: i32, height: i32, params:
                 }
                 // Vormultiplikation aufheben, graden, wieder vormultiplizieren.
                 let src = if a == 1.0 { [c[0], c[1], c[2]] } else { [c[0] / a, c[1] / a, c[2] / a] };
-                let out = look.pixel(src, col as f32 + 0.5, dy2);
+                let (x, y) = (col as f32 + 0.5, row as f32 + 0.5);
+                let out = look.pixel(src, x, dy2);
+                let out = grain.as_ref().map_or(out, |g| g.pixel(out, x, y));
                 c[0] = out[0] * a;
                 c[1] = out[1] * a;
                 c[2] = out[2] * a;
@@ -182,4 +211,24 @@ pub unsafe extern "C" fn ec_render(pixels: i32, width: i32, height: i32, params:
         }
     });
     0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_manifest_has_as_many_values_as_p_expects() {
+        let values: usize = MANIFEST
+            .split("\"type\": \"")
+            .skip(1)
+            .map(|t| match t.split('"').next() {
+                Some("color") => 4,
+                Some("point") => 2,
+                _ => 1,
+            })
+            .sum();
+        assert_eq!(values, P::COUNT);
+        assert_eq!(P::COUNT - P::GR_VALUES, tools::grain::TOOL.params.len());
+    }
 }

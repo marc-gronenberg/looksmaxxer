@@ -99,6 +99,7 @@ impl PositionOp for Filter {
   if (w == 0.0) return c;
   vec3 f = vec3(u[6], u[7], u[8]);
   return srgb(lin(c) * (u[9] > 0.5 ? pow(max(f, 0.0), vec3(w)) : 1.0 + (f - 1.0) * w));",
+            lib: "",
             values: [s[0], s[1], d[0], d[1], self.power, self.amount, f[0], f[1], f[2], if self.stops { 1.0 } else { 0.0 }, 0.0, 0.0],
         })
     }

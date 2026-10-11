@@ -104,6 +104,7 @@ impl PositionOp for Lens {
   if (d <= u[4]) return c;
   float k = ss(u[4], 1.0, d) * abs(u[5]) * (1.0 - u[6] * ss(0.5, 1.0, clamp(luma(c), 0.0, 1.0)));
   return u[5] > 0.0 ? c * (1.0 - k) : c + max(1.0 - c, 0.0) * k;",
+            lib: "",
             values: [s.cx, s.cy, s.rx, s.ry, s.inner, self.strength, self.highlights, 0.0, 0.0, 0.0, 0.0, 0.0],
         })
     }
@@ -113,7 +114,7 @@ impl PositionOp for Lens {
 mod tests {
     use super::*;
 
-    const FRAME: Frame = Frame { width: 160.0, height: 90.0 };
+    const FRAME: Frame = Frame { width: 160.0, height: 90.0, seed: 0 };
 
     fn lens(v: [f32; 8]) -> Box<dyn PositionOp> {
         match build(&v, &FRAME) {
